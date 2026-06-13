@@ -1,0 +1,14 @@
+# local tooling env + caches
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# secrets (use .env.example as the template)
+.env
+
+# macOS
+.DS_Store
+
+# the ManiSkill baseline clone lives on the training box (A100), not vendored here
+benchmarks/
