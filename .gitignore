@@ -12,3 +12,6 @@ __pycache__/
 
 # the ManiSkill baseline clone lives on the training box (A100), not vendored here
 benchmarks/
+
+# daemon logs
+logs/
