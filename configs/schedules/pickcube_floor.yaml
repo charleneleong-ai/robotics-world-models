@@ -11,9 +11,13 @@ description: >
   PegInsertionSide. Runs trained on a datacenter A100 80GB, logged to W&B project wm-manip.
 
 configs:
-  ppo:                          # model-free floor (BASELINE)
+  ppo:                          # model-free on-policy floor (BASELINE)
     launcher: benchmarks/ManiSkill/examples/baselines/ppo/ppo.py
     overrides: { num_envs: 1024, total_timesteps: 10_000_000, update_epochs: 8, num_minibatches: 32 }
+    seeds: [1, 2, 3, 4, 5]
+  sac:                          # model-free off-policy floor (BASELINE)
+    launcher: benchmarks/ManiSkill/examples/baselines/sac/sac.py
+    overrides: { num_envs: 32, utd: 0.5, buffer_size: 500_000, total_timesteps: 500_000, eval_freq: 50_000, control_mode: pd_ee_delta_pos }
     seeds: [1, 2, 3, 4, 5]
   tdmpc2:                       # world model under test
     launcher: benchmarks/ManiSkill/examples/baselines/tdmpc2/train.py
