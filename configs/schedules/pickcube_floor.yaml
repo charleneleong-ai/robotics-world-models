@@ -1,0 +1,21 @@
+# Sweep recipe: floor comparison on PickCube-v1 (state obs)
+# Model-free floors (PPO/SAC) vs world models (TD-MPC2/DreamerV3).
+# PickCube is the warm-up/sanity task — the real contact-rich comparison is PegInsertionSide.
+task: pickcube_floor
+env_id: PickCube-v1
+obs: state
+description: >
+  Establish a reproducible floor on PickCube-v1 and a like-for-like world-model-vs-model-free
+  comparison on identical task/seeds/budget. Headline contribution is the world-model-vs-classical
+  crossover characterization (see literature-positioning.md), with the contact-rich result on
+  PegInsertionSide. Runs trained on a datacenter A100 80GB, logged to W&B project wm-manip.
+
+configs:
+  ppo:                          # model-free floor (BASELINE)
+    launcher: benchmarks/ManiSkill/examples/baselines/ppo/ppo.py
+    overrides: { num_envs: 1024, total_timesteps: 10_000_000, update_epochs: 8, num_minibatches: 32 }
+    seeds: [1, 2, 3, 4, 5]
+  tdmpc2:                       # world model under test
+    launcher: benchmarks/ManiSkill/examples/baselines/tdmpc2/train.py
+    overrides: { model_size: 5, steps: 1_000_000, num_envs: 32, control_mode: pd_ee_delta_pos, buffer_size: 1_000_000 }
+    seeds: [1, 2, 3, 4, 5]

@@ -1,0 +1,71 @@
+# Common commands for the world-models manipulation project.
+# Analysis runs locally (Mac, against W&B); training runs on the A100 via SSH.
+#   mise run init        # one-time local tooling venv
+#   mise run dry-run     # plan the sweep (no launch)
+#   mise run deploy      # push driver+configs to the A100
+#   mise run sweep       # launch the SweepRunner driver detached on the A100
+#   mise run status      # A100 log tail + running procs
+#   mise run pull        # pull A100 results.jsonl back for local render/report
+#   mise run render ppo  # progress.png for a config
+#   mise run report ppo  # writeup scaffold
+
+[env]
+HOST = "pi-a100-80gb"                                  # datacenter A100 80GB
+TAG = "pickcube_floor"
+WANDB_PROJECT = "wm-manip"
+A100_DIR = "robotics_world_models"                     # ~/robotics_world_models on the box
+SCHEDULE = "configs/schedules/pickcube_floor.yaml"
+AR_SRC = "/Users/charleneleong/Dropbox/Mac/Documents/gen-ai/autoresearch"
+
+[tasks.init]
+description = "Create local tooling venv + install autoresearch[wandb]"
+run = "uv venv --python 3.11 .venv && uv pip install --python .venv \"$AR_SRC[wandb]\""
+
+[tasks.test]
+description = "Run local (no-GPU) driver + plumbing tests"
+run = ".venv/bin/python -m pytest experiments/test_driver.py -q"
+
+[tasks.dry-run]
+description = "Plan the sweep — print commands, skip already-done, no launch"
+run = ".venv/bin/python -m experiments.autoresearch --schedule \"$SCHEDULE\" --dry-run"
+
+[tasks.deploy]
+description = "Rsync driver + configs to the A100"
+run = "rsync -az --exclude __pycache__ experiments configs \"$HOST:~/$A100_DIR/\" && echo deployed to $HOST"
+
+[tasks.sweep]
+description = "Launch the SweepRunner driver detached on the A100 (PPID=1)"
+run = """
+ssh "$HOST" 'cd ~/'"$A100_DIR"' && set -a; . ./.env; set +a; \
+  L=logs/sweep_$(date -u +%Y%m%dT%H%M%SZ).log; mkdir -p logs; \
+  setsid nohup ~/miniconda3/envs/wm/bin/python -m experiments.autoresearch --schedule '"$SCHEDULE"' </dev/null >>"$L" 2>&1 & disown; \
+  sleep 3; echo "launched -> $L"; pgrep -af "experiments.autoresearch" | head -1'
+"""
+
+[tasks.status]
+description = "A100 sweep log tail + running training procs + GPU"
+run = """
+ssh "$HOST" 'tail -8 ~/'"$A100_DIR"'/logs/sweep_*.log 2>/dev/null; echo "--- procs ---"; \
+  pgrep -af "experiments.autoresearch|train.py|ppo.py" || echo "none running"; echo "--- gpu ---"; \
+  nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.free --format=csv,noheader'
+"""
+
+[tasks.gpu]
+description = "A100 GPU snapshot (who holds memory)"
+run = "ssh \"$HOST\" 'nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv,noheader'"
+
+[tasks.pull]
+description = "Pull A100 results.jsonl back to the Mac for local render/report"
+run = "rsync -az \"$HOST:~/$A100_DIR/experiments/\" experiments/ && echo pulled results from $HOST"
+
+[tasks.render]
+description = "Render progress.png for a config (usage: mise run render ppo)"
+run = ".venv/bin/autoresearch-render --tag \"$TAG\" --config {{arg(name='config', default='ppo')}}"
+
+[tasks.report]
+description = "Generate the sweep writeup scaffold (usage: mise run report ppo)"
+run = ".venv/bin/autoresearch-report --schedule \"$SCHEDULE\" --config {{arg(name='config', default='ppo')}} --tag \"$TAG\" --out \"docs/experiments/$TAG/$TAG.md\" --force"
+
+[tasks.wandb]
+description = "Open the W&B project in a browser"
+run = "open \"https://wandb.ai/chaleong/$WANDB_PROJECT\""
