@@ -16,6 +16,9 @@ WANDB_PROJECT = "wm-manip"
 A100_DIR = "robotics_world_models"                     # ~/robotics_world_models on the box
 SCHEDULE = "configs/schedules/pickcube_floor.yaml"
 AR_SRC = "/Users/charleneleong/Dropbox/Mac/Documents/gen-ai/autoresearch"
+REPO_SLUG = "charleneleong-ai/robotics-world-models"
+BRANCH = "feat/world-models-floor"
+PR = "1"
 
 [tasks.init]
 description = "Create local tooling venv + install autoresearch[wandb]"
@@ -69,3 +72,26 @@ run = ".venv/bin/autoresearch-report --schedule \"$SCHEDULE\" --config {{arg(nam
 [tasks.wandb]
 description = "Open the W&B project in a browser"
 run = "open \"https://wandb.ai/chaleong/$WANDB_PROJECT\""
+
+# ── live PR-chart daemons (Mac; macOS has no setsid, so nohup+disown) ──────────
+# Need gh auth + an open PR with <!-- SWEEP_NARRATIVE_START/END --> markers in its body.
+[tasks.pr-updater]
+description = "Daemon: render chart + patch PR narrative table every 10min (usage: mise run pr-updater ppo)"
+run = """
+L=logs/pr_updater_$(date -u +%Y%m%dT%H%M%SZ).log
+nohup .venv/bin/autoresearch-pr-updater --tag "$TAG" --config {{arg(name='config', default='ppo')}} \
+  --pr "$PR" --repo "$REPO_SLUG" --branch "$BRANCH" --cwd . --poll-s 600 </dev/null >>"$L" 2>&1 & disown
+echo "pr-updater -> $L"
+"""
+
+[tasks.pull-loop]
+description = "Daemon: rsync A100 results.jsonl -> Mac every 10min (feeds pr-updater/compare)"
+run = """
+L=logs/pull_loop_$(date -u +%Y%m%dT%H%M%SZ).log
+nohup bash -c 'while true; do rsync -az '"$HOST"':~/'"$A100_DIR"'/experiments/ experiments/ 2>/dev/null; sleep 600; done' </dev/null >>"$L" 2>&1 & disown
+echo "pull-loop -> $L"
+"""
+
+[tasks.daemons-stop]
+description = "Stop the pr-updater + pull-loop daemons"
+run = "pkill -f autoresearch-pr-updater; pkill -f 'rsync -az .*robotics_world_models'; echo stopped"
