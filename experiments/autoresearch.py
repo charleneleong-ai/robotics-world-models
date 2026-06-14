@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import logging
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -65,7 +66,7 @@ def free_mb() -> int:
 
 def build_cmd(method: str, launcher: Path, overrides: dict[str, Any], seed: int,
               env_id: str, obs: str, wandb_name: str) -> list[str]:
-    py = "python"  # the driver is run by the wm-env interpreter; child inherits it via PATH
+    py = sys.executable  # absolute path to THIS interpreter (the wm env) — bare "python" isn't on PATH under setsid
     script = launcher.name
     if method in HYDRA_CLIS:  # hydra: key=value, wandb=true wandb_project=... wandb_name=...
         args = [f"{k}={v}" for k, v in overrides.items()]

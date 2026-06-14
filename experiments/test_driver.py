@@ -37,7 +37,7 @@ class TestBuildCmd:
     def test_ppo_uses_tyro_dashes_and_track(self):
         cmd = build_cmd("ppo", FAKE, {"num_envs": 1024}, 3, "PickCube-v1", "state", "ppo-pickcube-state-s3")
         s = " ".join(cmd)
-        assert cmd[:3] == ["python", "-u", "ppo.py"]
+        assert cmd[0] == sys.executable and cmd[1:3] == ["-u", "ppo.py"]  # absolute interp, not bare "python"
         assert "--num_envs=1024" in s and "--seed=3" in s
         assert "--track" in s and "--wandb_project_name=wm-manip" in s
         assert "wandb=true" not in s  # hydra style must not leak into tyro cmd
