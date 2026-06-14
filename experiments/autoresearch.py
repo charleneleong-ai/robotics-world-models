@@ -120,7 +120,7 @@ class SchedulePlanner:
                     cmd=cmd,
                     description=f"{method} {self.env_id} {self.obs} seed {seed}",
                     config_name=method,
-                    timeout_min=TIMEOUT_MIN.get(method, 240),
+                    timeout_min=cfg.get("timeout_min", TIMEOUT_MIN.get(method, 240)),  # per-config override
                     cwd=launcher.parent,
                     sidecar_payload={"wandb_name": wandb_name, "seed": seed, "method": method},
                 )
