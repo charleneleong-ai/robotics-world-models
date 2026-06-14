@@ -17,7 +17,7 @@ import pytest
 
 from autoresearch.results import load_results, log_experiment
 from autoresearch.sweep_runner import IterPlan, NullTriageMonitor, SweepRunner
-from experiments.autoresearch import SchedulePlanner, build_cmd, env_short
+from experiments.autoresearch import SchedulePlanner, WandbResultExtractor, build_cmd, env_short
 
 FAKE = Path("benchmarks/ManiSkill/examples/baselines/ppo/ppo.py")
 
@@ -83,3 +83,60 @@ def test_sweeprunner_launch_to_results_jsonl(tmp_path):
     rows = load_results(str(tmp_path), "smoke", "stub")
     assert len(rows) == 1
     assert rows[0]["score"] == 0.5 and rows[0]["status"] == "KEEP" and rows[0]["steps"] == 123
+
+
+class _FakeRun:
+    def __init__(self, state, success=1.0):
+        self.state, self.url, self.created_at = state, "http://wandb/run", "2026-06-14"
+        self.summary = (
+            {"eval/success_once": success, "global_step": 1000, "_runtime": 600.0,
+             "eval/success_at_end": success, "eval/return": 42.0}
+            if state == "finished" else {}
+        )
+
+
+class _FakeApi:
+    """.runs() returns the next item each call; an Exception item is raised (transient error)."""
+
+    def __init__(self, sequence):
+        self._seq, self._i = list(sequence), 0
+
+    def runs(self, *_a, **_k):
+        item = self._seq[min(self._i, len(self._seq) - 1)]
+        self._i += 1
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _extractor(api, max_wait_s=5.0):
+    return WandbResultExtractor("e/p", max_wait_s=max_wait_s, api_factory=lambda: api, sleep=lambda *_: None)
+
+
+def _plan(method="sac", seed=5):
+    return IterPlan(cmd=["x"], description="d", config_name=method,
+                    sidecar_payload={"wandb_name": f"{method}-s{seed}", "seed": seed, "method": method})
+
+
+class TestWandbExtractorSyncLag:
+    """Extractor must survive W&B sync lag without dropping a clean run (the sac-s5 bug)."""
+
+    def test_waits_through_lag_then_logs_baseline(self):
+        api = _FakeApi([[], [_FakeRun("running")], [_FakeRun("finished")]])  # absent → running → finished
+        rows = _extractor(api).extract(_plan(), None, 0)
+        assert len(rows) == 1 and rows[0]["status"] == "BASELINE"
+        assert rows[0]["score"] == 1.0 and "degraded" not in rows[0].get("notes", "")
+
+    def test_tolerates_transient_api_error(self):
+        api = _FakeApi([RuntimeError("503 from wandb"), [_FakeRun("finished")]])
+        rows = _extractor(api).extract(_plan(), None, 0)
+        assert rows[0]["score"] == 1.0 and rows[0]["status"] == "BASELINE"
+
+    def test_crash_only_when_run_never_appears(self):
+        rows = _extractor(_FakeApi([[]]), max_wait_s=0.01).extract(_plan(), None, 0)
+        assert rows[0]["status"] == "CRASH" and "no W&B run" in rows[0]["notes"]
+
+    def test_nonzero_exit_is_crash_without_any_api_call(self):
+        api = _FakeApi([RuntimeError("must not be called")])
+        rows = _extractor(api).extract(_plan(), None, 137)
+        assert rows[0]["status"] == "CRASH" and "exit_code=137" in rows[0]["notes"]
