@@ -126,39 +126,71 @@ class SchedulePlanner:
                 )
 
 
-class WandbResultExtractor:
-    """Pulls the finished run's metrics from W&B by name -> a results row."""
+EVAL_METRIC = "eval/success_once"
 
-    def __init__(self, entity_project: str) -> None:
+
+def _default_wandb_api():
+    import wandb
+    return wandb.Api()
+
+
+class WandbResultExtractor:
+    """Pull a finished run's metrics from W&B by name -> a results row.
+
+    Hardened against W&B sync lag: a run only reaches ``finished`` (and its summary
+    fills in) on the backend *after* the training process exits + flushes, which can
+    lag seconds-to-minutes under load. So poll with exponential backoff up to
+    ``max_wait_s``, tolerate transient API/network errors (retry, don't crash the
+    sweep), and only fall back to CRASH if no run ever appears. A clean (exit 0) run
+    that exists but hasn't fully synced is logged with its best-available summary and
+    a ``degraded`` note — never silently dropped (the bug that lost sac seed 5).
+
+    ``api_factory`` / ``sleep`` are injectable for testing without real W&B or waits.
+    """
+
+    def __init__(self, entity_project: str, *, max_wait_s: float = 300.0,
+                 api_factory=_default_wandb_api, sleep=time.sleep) -> None:
         self.entity_project = entity_project
+        self.max_wait_s = max_wait_s
+        self._api_factory = api_factory
+        self._sleep = sleep
+
+    def _find_run(self, name: str):
+        try:
+            runs = list(self._api_factory().runs(self.entity_project, filters={"display_name": name}))
+        except Exception as e:  # noqa: BLE001 — transient API/network error; caller retries
+            log.warning("wandb lookup failed for %s (will retry): %s", name, e)
+            return None
+        return max(runs, key=lambda r: getattr(r, "created_at", "") or "") if runs else None
 
     def extract(self, plan: IterPlan, run_id: str | None, exit_code: int) -> list[dict[str, Any]]:
-        import wandb
-
         name = plan.sidecar_payload.get("wandb_name", "")
         method = plan.sidecar_payload.get("method", plan.config_name or "")
         seed = plan.sidecar_payload.get("seed", 0)
-        base = {"method": method, "seed": seed, "config_name": method,
-                "description": plan.description}
+        base = {"method": method, "seed": seed, "config_name": method, "description": plan.description}
 
         if exit_code != 0:
             return [{**base, "status": "CRASH", "score": 0.0,
                      "notes": f"exit_code={exit_code}", "_relabel_target": True}]
 
+        deadline = time.monotonic() + self.max_wait_s
         run = None
-        for _ in range(6):  # W&B summary may lag the process exit a few seconds
-            runs = list(wandb.Api().runs(self.entity_project, filters={"display_name": name}))
-            if runs:
-                run = max(runs, key=lambda r: r.summary.get("_timestamp", 0))
-                if run.state == "finished":
-                    break
-            time.sleep(10)
+        delay = 10.0
+        while True:
+            run = self._find_run(name)
+            ready = run is not None and (run.state or "").lower() == "finished" and EVAL_METRIC in run.summary
+            if ready or time.monotonic() >= deadline:
+                break
+            self._sleep(min(delay, 30.0))
+            delay *= 1.5
+
         if run is None:
-            return [{**base, "status": "CRASH", "score": 0.0, "notes": "no W&B run found"}]
+            return [{**base, "status": "CRASH", "score": 0.0,
+                     "notes": f"no W&B run '{name}' found after {self.max_wait_s:.0f}s"}]
 
         s = run.summary
-        success_once = float(s.get("eval/success_once", 0.0) or 0.0)
-        return [{
+        success_once = float(s.get(EVAL_METRIC, 0.0) or 0.0)
+        row = {
             **base,
             "status": "BASELINE" if method in BASELINE_METHODS else "KEEP",
             "score": success_once,
@@ -168,7 +200,10 @@ class WandbResultExtractor:
             "eval_success_once": success_once,
             "eval_success_at_end": float(s.get("eval/success_at_end", 0.0) or 0.0),
             "eval_return": float(s.get("eval/return", 0.0) or 0.0),
-        }]
+        }
+        if (run.state or "").lower() != "finished" or EVAL_METRIC not in s:
+            row["notes"] = f"degraded: state={run.state}, metric_present={EVAL_METRIC in s}"
+        return [row]
 
 
 def main() -> None:
