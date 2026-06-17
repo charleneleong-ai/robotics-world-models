@@ -287,7 +287,9 @@ PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was
 |---|---|---|---|---|---|---|
 | AUROC | 0.760 | 0.768 | 0.797 | **0.925** | 0.950 | 0.989 |
 
-**8 images → 0.925 AUROC** (~93% of full-data performance from <4% of the data); 16 → 0.950. The knee at k=8 is the Matta/Timescapes "learn from a handful of examples" evidence, measured. AnomalyDINO 1-shot + cross-dataset (VisA) transfer are the next fills.
+**8 images → 0.925 AUROC** (~93% of full-data performance from <4% of the data); 16 → 0.950. The knee at k=8 is the Matta/Timescapes "learn from a handful of examples" evidence, measured.
+
+**Cross-dataset generalization.** The same MVTec-recipe PatchCore (no re-tuning) applied to a held-out dataset — **VisA `candle` = 0.961 image-AUROC** (900 normal train / 100+100 test) — shows the pipeline isn't MVTec-overfit. VisA is **CC BY 4.0 (commercial-safe)**, unlike MVTec (research-only). A second category (`pcb1`, electronics) was blocked by vast-box disk pressure, not method — more VisA categories + AnomalyDINO 1-shot transfer are the next fills.
 
 - **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
 - **Honesty ledger:** A100-trained, **CPU-OpenVINO latency proxy** (not a real Jetson); single category + image-level so far; FastFlow excluded (its metric needs pixel masks the `Folder` module doesn't carry). Pixel-AUROC/AUPRO, VisA, few-shot transfer, and the converged-EfficientAD + distilled-student points are the next M1 fills.
