@@ -39,7 +39,7 @@ neither cluster's models do alone.
 
 ## You have an ingredient for every layer
 
-Reasoning → TGAER + CLIP/multimodal · Semantic grounding → segmentation ([redacted]) + #2 ·
+Reasoning → TGAER + CLIP/multimodal · Semantic grounding → segmentation + #2 ·
 Spatial 3D → 3DGS (#2) · Dynamics → world-model RL (#1). Almost nobody has all four — that's the
 differentiator, and why this is *your* maximal-leverage capstone rather than a generic one.
 

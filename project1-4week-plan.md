@@ -1,7 +1,7 @@
 # Project #1 — 4-Week Plan: World Model for Manipulation vs Classical Planning
 
 > Compressed 1-month version of the build described in `project1-world-models-manipulation-SOTA.md`.
-> **Assumption:** ~full-time effort + one A100-class GPU (your [redacted] setup). If it's evenings/weekends, this is a 6–8 week plan — see *If part-time* at the end.
+> **Assumption:** ~full-time effort + one A100-class GPU. If it's evenings/weekends, this is a 6–8 week plan — see *If part-time* at the end.
 
 ## The deliverable (what "done" looks like in 4 weeks)
 
@@ -35,7 +35,7 @@ Goal by Friday: **TD-MPC2 learning PickCube on ManiSkill3, beating a PPO floor, 
 Goal: **DreamerV3 running, and the OMPL/MoveIt classical baseline producing a crossover table.**
 
 - **Day 1–2 — DreamerV3.** Use [`NM512/dreamerv3-torch`](https://github.com/NM512/dreamerv3-torch) (PyTorch, maintained Mar 2026 — avoids the JAX↔CUDA matching footgun of `danijar/dreamerv3`). Point it at PickCube. 3 seeds running.
-- **Day 3–5 — Classical baseline (your edge).** Stand up **MoveIt 2 / OMPL** **RRT-Connect** on the *same* PickCube scene geometry (URDF + planning scene from the sim). Measure success rate (fixed planning-time budget), planning time (median + tail — these are heavy-tailed), path quality (length/smoothness/clearance). Use **MotionBenchMaker** scene logs rather than hand-rolling if time allows. This reconnects directly to your [redacted] ROS/MoveIt work.
+- **Day 3–5 — Classical baseline (your edge).** Stand up **MoveIt 2 / OMPL** **RRT-Connect** on the *same* PickCube scene geometry (URDF + planning scene from the sim). Measure success rate (fixed planning-time budget), planning time (median + tail — these are heavy-tailed), path quality (length/smoothness/clearance). Use **MotionBenchMaker** scene logs rather than hand-rolling if time allows.
 
 **Week 2 exit check:** three methods (TD-MPC2, DreamerV3, model-free) + a classical planner all producing numbers on PickCube. First draft crossover table exists.
 

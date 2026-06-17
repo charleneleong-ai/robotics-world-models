@@ -18,7 +18,7 @@ env_id: PickCube-v1
 obs: state
 description: 'Establish a reproducible floor on PickCube-v1 and a like-for-like world-model-vs-model-free
   comparison on identical task/seeds/budget. Headline contribution is the world-model-vs-classical
-  crossover characterization (see literature-positioning.md), with the contact-rich
+  crossover characterization, with the contact-rich
   result on PegInsertionSide. Runs trained on a datacenter A100 80GB, logged to W&B
   project wm-manip.
 
