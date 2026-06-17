@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Project #1 Week-1 bring-up — datacenter A100 80GB · Ubuntu 22.04 · conda · CUDA 12.x
 # Run STEP BY STEP, not blind. The render gate (step 4) is the go/no-go — stop there if it fails.
-# Companion doc with explanations + troubleshooting: project1-week1-setup.md
 set -euo pipefail
 
 CUDA_TAG="${CUDA_TAG:-cu121}"   # override: CUDA_TAG=cu124 ./setup.sh  (match your driver)
