@@ -1,0 +1,6 @@
+[
+  {"model": "AnomalyDINO(DINOv2-S/14)", "k": 1, "auroc": 0.859},
+  {"model": "AnomalyDINO(DINOv2-S/14)", "k": 2, "auroc": 0.874},
+  {"model": "AnomalyDINO(DINOv2-S/14)", "k": 4, "auroc": 0.874},
+  {"model": "AnomalyDINO(DINOv2-S/14)", "k": 8, "auroc": 0.918}
+]
