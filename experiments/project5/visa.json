@@ -1,0 +1,3 @@
+[
+  {"dataset": "VisA", "category": "candle", "model": "PatchCore", "auroc": 0.961, "n_train": 900, "n_test_good": 100, "n_test_anom": 100, "note": "cross-dataset: MVTec-recipe PatchCore applied to a held-out dataset"}
+]
