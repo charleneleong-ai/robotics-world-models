@@ -4,7 +4,7 @@ Learned **world models for robotic manipulation** in simulation, benchmarked aga
 model-free RL and (next) classical motion planning — with the sweep infrastructure wired
 into [`autoresearch`](https://github.com/charleneleong-ai/autoresearch).
 
-> **Honest positioning** (see [`literature-positioning.md`](literature-positioning.md)): this is
+> **Honest positioning:** this is
 > a *reproduction + controlled-comparison* study, not a new method. The defensible contribution is
 > the **world-model-vs-classical crossover on contact-rich tasks** (PegInsertionSide), characterized
 > with `rliable`-grade statistics. PickCube is the warm-up/sanity task.
@@ -24,7 +24,7 @@ Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 +
 | `project1-world-models-manipulation-SOTA.md` | SOTA survey: sims, methods, repos, benchmarks (verified 2026-06) |
 | `project2-3d4d-scene-representation-SOTA.md` | SOTA survey for the 3D/4D Gaussian-splatting project |
 | `project1-4week-plan.md` · `project1-week1-setup.md` | build plan + A100 bring-up |
-| `literature-positioning.md` · `project1-related-work.md` | where the work sits vs the literature + drop-in Related Work |
+| `project1-related-work.md` | where the work sits vs the literature + drop-in Related Work |
 | `configs/schedules/*.yaml` | sweep recipes |
 | `experiments/autoresearch.py` | **SweepRunner driver** — schedule-driven, GPU-gated, resumable, hang-triaged |
 | `experiments/<tag>/<config>/results.jsonl` · `progress.png` | per-config results + chart |

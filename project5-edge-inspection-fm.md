@@ -331,8 +331,8 @@ Continuous reality capture for construction; solar/4G site cameras → activity/
 
 | Asset | How it plugs in |
 |---|---|
-| **Production CV / segmentation at scale** ([redacted] whole-slide) | Dense pixel-level AD localization is the same muscle; SAM2/EdgeSAM ROI masking. |
-| **Model distillation** ([redacted]) | Core of the VFM→tiny-student step. |
+| **Production CV / segmentation at scale** (whole-slide medical imaging) | Dense pixel-level AD localization is the same muscle; SAM2/EdgeSAM ROI masking. |
+| **Model distillation** | Core of the VFM→tiny-student step. |
 | **NF4 quantization** (Project #1.5: 28B video model on 40 GB + attention hack) | The *quantization muscle* transfers; here it sharpens into ViT-aware INT8/QAT for edge. **Explicitly contrast: NF4=memory-on-GPU, this=latency-on-edge** — shows you know *why* the tool changes. |
 | **Eval-pipeline rigor** | The Pareto curve, CIs, FMA-convention honesty, edge-proxy framing. |
 | **Multimodal/CLIP** | WinCLIP/AnomalyCLIP zero-shot branch. |
