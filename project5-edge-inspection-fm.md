@@ -281,13 +281,14 @@ The deploy-and-measure loop from §9.2 is **working end-to-end**: anomalib model
 
 PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the Matta "low-compute factory" thesis rests on, measured not asserted.
 
-**Few-shot curve (the "new line, little data" result).** PatchCore image-AUROC on `cable` vs the number of normal training images — accuracy climbs fast and saturates well before full data:
+**Few-shot curves (the "new line, little data" result).** Image-AUROC on `cable` vs the number of normal training images, for two detectors — PatchCore (WideResNet-50 memory bank) and **AnomalyDINO** (training-free DINOv2-S/14 patch nearest-neighbour):
 
 | Normal imgs (k) | 1 | 2 | 4 | 8 | 16 | full (224) |
 |---|---|---|---|---|---|---|
-| AUROC | 0.760 | 0.768 | 0.797 | **0.925** | 0.950 | 0.989 |
+| **AnomalyDINO (DINOv2-S)** | **0.859** | 0.874 | 0.874 | 0.918 | — | — |
+| PatchCore (WideResNet-50) | 0.760 | 0.768 | 0.797 | 0.925 | 0.950 | 0.989 |
 
-**8 images → 0.925 AUROC** (~93% of full-data performance from <4% of the data); 16 → 0.950. The knee at k=8 is the Matta/Timescapes "learn from a handful of examples" evidence, measured.
+**1-shot: DINOv2 patch features hit 0.859 vs PatchCore's 0.760 (+10 pts)** — foundation-model features dominate when data is scarcest (the "learn from *one* example" pitch); PatchCore only catches up by 8-shot and wins with full data. The k=8 knee plus the 1-shot gap are the Matta/Timescapes "learn from a handful of examples" evidence, measured. (AnomalyDINO here is a simplified patch-NN with the *smallest* DINOv2 backbone on one category — the full method / a larger backbone score higher; the **relative low-data win** is the result, not the absolute number.)
 
 **Cross-dataset generalization.** The same MVTec-recipe PatchCore (no re-tuning) applied to **VisA** — a held-out dataset, **CC BY 4.0 (commercial-safe)** unlike MVTec (research-only) — shows the pipeline isn't MVTec-overfit, across 4 categories:
 
@@ -297,7 +298,7 @@ PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was
 
 Strong transfer on 3/4 (0.945–0.962); **capsules** drops to 0.700 — a known-hard VisA category (small, low-contrast defects), an honest reminder that one recipe doesn't win everywhere. AnomalyDINO 1-shot transfer + the harder categories are the next fills.
 
-- **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
+- **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`visa.json`](experiments/project5/visa.json) · [`anomalydino.json`](experiments/project5/anomalydino.json) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · [`anomalydino.py`](experiments/project5/anomalydino.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
 - **Honesty ledger:** A100-trained, **CPU-OpenVINO latency proxy** (not a real Jetson); single category + image-level so far; FastFlow excluded (its metric needs pixel masks the `Folder` module doesn't carry). Pixel-AUROC/AUPRO, VisA, few-shot transfer, and the converged-EfficientAD + distilled-student points are the next M1 fills.
 
 ---
