@@ -1,3 +1,6 @@
 [
-  {"dataset": "VisA", "category": "candle", "model": "PatchCore", "auroc": 0.961, "n_train": 900, "n_test_good": 100, "n_test_anom": 100, "note": "cross-dataset: MVTec-recipe PatchCore applied to a held-out dataset"}
+  {"dataset": "VisA", "category": "candle",   "model": "PatchCore", "auroc": 0.961, "n_train": 900, "n_test_good": 100, "n_test_anom": 100},
+  {"dataset": "VisA", "category": "pcb1",     "model": "PatchCore", "auroc": 0.962, "n_train": 904, "n_test_good": 100, "n_test_anom": 100},
+  {"dataset": "VisA", "category": "cashew",   "model": "PatchCore", "auroc": 0.945, "n_train": 450, "n_test_good": 50,  "n_test_anom": 100},
+  {"dataset": "VisA", "category": "capsules", "model": "PatchCore", "auroc": 0.700, "n_train": 542, "n_test_good": 60,  "n_test_anom": 100}
 ]
