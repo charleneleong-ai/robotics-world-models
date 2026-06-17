@@ -267,6 +267,23 @@ Tiny student (TinyViT-5M)  ──ToMe──►  ──ViT-aware INT8 PTQ──�
 - Custom NPU/MCU silicon bring-up, in-factory real-time FPS claims.
 - A genuinely novel anomaly-detection method (not the point — *deployment engineering + honest eval* is).
 
+### 9.5 M1 results — first Pareto frontier (live, 2026-06-17)
+
+The deploy-and-measure loop from §9.2 is **working end-to-end**: anomalib model → ONNX → OpenVINO INT8 (NNCF PTQ) → CPU latency benchmark, on MVTec-AD `cable` (image-level AUROC, 8 defect types via a `Folder` datamodule). Three architectures span a clean accuracy↔latency↔compute frontier — no single model dominates all three axes:
+
+| Model | Backbone | Image AUROC | INT8 latency (CPU) | INT8 size | Wins on |
+|---|---|---|---|---|---|
+| **PatchCore** | WideResNet-50 | **0.993** | 67.9 ms | 95.6 MB | accuracy |
+| **EfficientAD** | PDN-S (student-teacher) | 0.930 † | 34.8 ms | **8.1 MB** | footprint (12× smaller) |
+| **PaDiM** | ResNet-18 | 0.790 | **23.4 ms** | 47.0 MB | latency |
+
+† EfficientAD at **80 epochs (~18k steps vs the recommended ~70k)** — accuracy is still a *lower bound* (literature ~95–98%) but the trend is clear. The 8.1 MB / 35 ms point is the edge headline: within ~6 pts of PatchCore's accuracy at **1/12th the disk and half the latency**.
+
+PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the Matta "low-compute factory" thesis rests on, measured not asserted.
+
+- **Artefacts:** [`experiments/project5/results.jsonl`](experiments/project5/results.jsonl) · [`pareto.py`](experiments/project5/pareto.py) · ![chart](experiments/project5/m1_pareto.png)
+- **Honesty ledger:** A100-trained, **CPU-OpenVINO latency proxy** (not a real Jetson); single category + image-level so far; FastFlow excluded (its metric needs pixel masks the `Folder` module doesn't carry). Pixel-AUROC/AUPRO, VisA, few-shot transfer, and the converged-EfficientAD + distilled-student points are the next M1 fills.
+
 ---
 
 ## 10. JD mapping
