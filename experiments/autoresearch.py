@@ -23,7 +23,6 @@ experiments/<tag>/<config>/results.jsonl as runs finish.
 
 from __future__ import annotations
 
-import argparse
 import logging
 import subprocess
 import sys
@@ -32,6 +31,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import typer
+import wandb
 import yaml
 
 from autoresearch.gpu_monitor import GPUTriageThresholds
@@ -130,7 +131,6 @@ EVAL_METRIC = "eval/success_once"
 
 
 def _default_wandb_api():
-    import wandb
     return wandb.Api()
 
 
@@ -206,17 +206,15 @@ class WandbResultExtractor:
         return [row]
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--schedule", required=True, type=Path)
-    ap.add_argument("--dry-run", action="store_true", help="plan + print cmds, no GPU wait, no launch")
-    args = ap.parse_args()
-
-    sched = yaml.safe_load(args.schedule.read_text())
+def main(
+    schedule: Path = typer.Option(..., help="schedule yaml under configs/schedules/"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="plan + print cmds, no GPU wait, no launch"),
+) -> None:
+    sched = yaml.safe_load(schedule.read_text())
     tag = sched["task"]
-    planner = SchedulePlanner(sched, dry_run=args.dry_run)
+    planner = SchedulePlanner(sched, dry_run=dry_run)
 
-    if args.dry_run:
+    if dry_run:
         hist = load_results("experiments", tag)
         for _ in planner.plan_iters(hist):
             pass
@@ -239,4 +237,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
