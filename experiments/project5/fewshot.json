@@ -1,0 +1,8 @@
+[
+  {"k": 1, "n_normal": 1, "auroc": 0.760},
+  {"k": 2, "n_normal": 2, "auroc": 0.768},
+  {"k": 4, "n_normal": 4, "auroc": 0.797},
+  {"k": 8, "n_normal": 8, "auroc": 0.925},
+  {"k": 16, "n_normal": 16, "auroc": 0.950},
+  {"k": "full", "n_normal": 224, "auroc": 0.989}
+]

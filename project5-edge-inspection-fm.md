@@ -281,7 +281,15 @@ The deploy-and-measure loop from §9.2 is **working end-to-end**: anomalib model
 
 PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the Matta "low-compute factory" thesis rests on, measured not asserted.
 
-- **Artefacts:** [`experiments/project5/results.jsonl`](experiments/project5/results.jsonl) · [`pareto.py`](experiments/project5/pareto.py) · ![chart](experiments/project5/m1_pareto.png)
+**Few-shot curve (the "new line, little data" result).** PatchCore image-AUROC on `cable` vs the number of normal training images — accuracy climbs fast and saturates well before full data:
+
+| Normal imgs (k) | 1 | 2 | 4 | 8 | 16 | full (224) |
+|---|---|---|---|---|---|---|
+| AUROC | 0.760 | 0.768 | 0.797 | **0.925** | 0.950 | 0.989 |
+
+**8 images → 0.925 AUROC** (~93% of full-data performance from <4% of the data); 16 → 0.950. The knee at k=8 is the Matta/Timescapes "learn from a handful of examples" evidence, measured. AnomalyDINO 1-shot + cross-dataset (VisA) transfer are the next fills.
+
+- **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
 - **Honesty ledger:** A100-trained, **CPU-OpenVINO latency proxy** (not a real Jetson); single category + image-level so far; FastFlow excluded (its metric needs pixel masks the `Folder` module doesn't carry). Pixel-AUROC/AUPRO, VisA, few-shot transfer, and the converged-EfficientAD + distilled-student points are the next M1 fills.
 
 ---
