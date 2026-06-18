@@ -1,0 +1,21 @@
+{
+  "task": "PegInsertionSide-v1 (state obs, contact-rich)",
+  "metric": "train/success_once (running success over training rollouts)",
+  "source": "W&B chaleong/wm-manip — recovered from partial runs killed by the 12h wall-clock cap at ~1M steps (2M target)",
+  "tdmpc2": {
+    "note": "world model under test; x = env steps (thousands)",
+    "s1_run": "q56ogmxz",
+    "s1": [[51, 0.0], [272, 0.063], [348, 0.188], [496, 0.281], [601, 0.469], [668, 0.531], [822, 0.625], [1005, 0.75]],
+    "s2_run": "jmu8hrjn",
+    "s2": [[13, 0.0], [381, 0.5], [451, 0.656], [454, 0.688], [832, 0.844], [944, 0.938]],
+    "s3_run": "i5plglsn",
+    "s3": [[13, 0.0], [381, 0.375], [451, 0.563], [832, 0.875], [963, 0.844]],
+    "final_success_once": {"s1": 0.75, "s2": 0.938, "s3": 0.844, "mean": 0.844}
+  },
+  "ppo": {
+    "note": "model-free floor (BASELINE); eval/success_once",
+    "steps_k": 50000,
+    "success_once_per_seed": [0.0, 0.0, 0.0],
+    "mean": 0.0
+  }
+}
