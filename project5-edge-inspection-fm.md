@@ -281,6 +281,8 @@ The deploy-and-measure loop from §9.2 is **working end-to-end**: anomalib model
 
 PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the Matta "low-compute factory" thesis rests on, measured not asserted.
 
+**Pixel-level localization (where, not just whether).** With the ground-truth masks wired in, PatchCore on `cable` scores **pixel-AUROC 0.986** and **AUPRO 0.916** (image-AUROC 0.983 on this split) — it localizes the *defect region*, not just flags the image. That's the "not just what went wrong, but **why**" capability (Matta) + the dense whole-slide-segmentation muscle, producing operator-reviewable anomaly heatmaps. AUPRO (per-region overlap, the stricter localization metric) at 0.92 means the hot regions actually land on the real defects.
+
 **Few-shot curves (the "new line, little data" result).** Image-AUROC on `cable` vs the number of normal training images, for two detectors — PatchCore (WideResNet-50 memory bank) and **AnomalyDINO** (training-free DINOv2-S/14 patch nearest-neighbour):
 
 | Normal imgs (k) | 1 | 2 | 4 | 8 | 16 | full (224) |
@@ -298,7 +300,7 @@ PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was
 
 Strong transfer on 3/4 (0.945–0.962); **capsules** drops to 0.700 — a known-hard VisA category (small, low-contrast defects), an honest reminder that one recipe doesn't win everywhere. AnomalyDINO 1-shot transfer + the harder categories are the next fills.
 
-- **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`visa.json`](experiments/project5/visa.json) · [`anomalydino.json`](experiments/project5/anomalydino.json) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · [`anomalydino.py`](experiments/project5/anomalydino.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
+- **Artefacts:** [`results.jsonl`](experiments/project5/results.jsonl) · [`visa.json`](experiments/project5/visa.json) · [`anomalydino.json`](experiments/project5/anomalydino.json) · [`pixel_metrics.json`](experiments/project5/pixel_metrics.json) · [`pareto.py`](experiments/project5/pareto.py) · [`fewshot.py`](experiments/project5/fewshot.py) · [`anomalydino.py`](experiments/project5/anomalydino.py) · [`pixel.py`](experiments/project5/pixel.py) · ![Pareto](experiments/project5/m1_pareto.png) · ![few-shot](experiments/project5/m1_fewshot.png)
 - **Honesty ledger:** A100-trained, **CPU-OpenVINO latency proxy** (not a real Jetson); single category + image-level so far; FastFlow excluded (its metric needs pixel masks the `Folder` module doesn't carry). Pixel-AUROC/AUPRO, VisA, few-shot transfer, and the converged-EfficientAD + distilled-student points are the next M1 fills.
 
 ---
