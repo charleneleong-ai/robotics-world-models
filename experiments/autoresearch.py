@@ -23,6 +23,7 @@ experiments/<tag>/<config>/results.jsonl as runs finish.
 
 from __future__ import annotations
 
+import argparse
 import logging
 import subprocess
 import sys
@@ -31,8 +32,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import typer
-import wandb
 import yaml
 
 from autoresearch.gpu_monitor import GPUTriageThresholds
@@ -128,9 +127,22 @@ class SchedulePlanner:
 
 
 EVAL_METRIC = "eval/success_once"
+# World-model baselines (TD-MPC2 / DreamerV3) log train/success_once, not eval/* — accept
+# either, else a converged world-model run is mis-recorded as metric-less (the bug that
+# tagged solved TD-MPC2 seeds EARLY_KILL with score 0).
+SUCCESS_METRICS = (EVAL_METRIC, "train/success_once")
+
+
+def _success_metric(summary: Any) -> tuple[str | None, float]:
+    """First success metric present in the summary as (key, value); (None, 0.0) if absent."""
+    for k in SUCCESS_METRICS:
+        if k in summary:
+            return k, float(summary.get(k) or 0.0)
+    return None, 0.0
 
 
 def _default_wandb_api():
+    import wandb
     return wandb.Api()
 
 
@@ -178,7 +190,8 @@ class WandbResultExtractor:
         delay = 10.0
         while True:
             run = self._find_run(name)
-            ready = run is not None and (run.state or "").lower() == "finished" and EVAL_METRIC in run.summary
+            ready = (run is not None and (run.state or "").lower() == "finished"
+                     and any(k in run.summary for k in SUCCESS_METRICS))
             if ready or time.monotonic() >= deadline:
                 break
             self._sleep(min(delay, 30.0))
@@ -189,7 +202,7 @@ class WandbResultExtractor:
                      "notes": f"no W&B run '{name}' found after {self.max_wait_s:.0f}s"}]
 
         s = run.summary
-        success_once = float(s.get(EVAL_METRIC, 0.0) or 0.0)
+        metric_key, success_once = _success_metric(s)
         row = {
             **base,
             "status": "BASELINE" if method in BASELINE_METHODS else "KEEP",
@@ -197,24 +210,28 @@ class WandbResultExtractor:
             "steps": int(s.get("global_step", s.get("_step", 0)) or 0),
             "runtime_min": round(float(s.get("_runtime", 0.0) or 0.0) / 60.0, 1),
             "wandb_url": run.url,
-            "eval_success_once": success_once,
-            "eval_success_at_end": float(s.get("eval/success_at_end", 0.0) or 0.0),
-            "eval_return": float(s.get("eval/return", 0.0) or 0.0),
+            "success_once": success_once,
+            "success_metric": metric_key,
+            "eval_success_once": success_once,  # back-compat alias
+            "eval_success_at_end": float(s.get("eval/success_at_end", s.get("train/success_at_end", 0.0)) or 0.0),
+            "eval_return": float(s.get("eval/return", s.get("train/return", 0.0)) or 0.0),
         }
-        if (run.state or "").lower() != "finished" or EVAL_METRIC not in s:
-            row["notes"] = f"degraded: state={run.state}, metric_present={EVAL_METRIC in s}"
+        if (run.state or "").lower() != "finished" or metric_key is None:
+            row["notes"] = f"degraded: state={run.state}, success_metric={metric_key}"
         return [row]
 
 
-def main(
-    schedule: Path = typer.Option(..., help="schedule yaml under configs/schedules/"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="plan + print cmds, no GPU wait, no launch"),
-) -> None:
-    sched = yaml.safe_load(schedule.read_text())
-    tag = sched["task"]
-    planner = SchedulePlanner(sched, dry_run=dry_run)
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--schedule", required=True, type=Path)
+    ap.add_argument("--dry-run", action="store_true", help="plan + print cmds, no GPU wait, no launch")
+    args = ap.parse_args()
 
-    if dry_run:
+    sched = yaml.safe_load(args.schedule.read_text())
+    tag = sched["task"]
+    planner = SchedulePlanner(sched, dry_run=args.dry_run)
+
+    if args.dry_run:
         hist = load_results("experiments", tag)
         for _ in planner.plan_iters(hist):
             pass
@@ -237,4 +254,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    main()

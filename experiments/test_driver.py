@@ -86,11 +86,10 @@ def test_sweeprunner_launch_to_results_jsonl(tmp_path):
 
 
 class _FakeRun:
-    def __init__(self, state, success=1.0):
+    def __init__(self, state, success=1.0, metric="eval/success_once"):
         self.state, self.url, self.created_at = state, "http://wandb/run", "2026-06-14"
         self.summary = (
-            {"eval/success_once": success, "global_step": 1000, "_runtime": 600.0,
-             "eval/success_at_end": success, "eval/return": 42.0}
+            {metric: success, "global_step": 1000, "_runtime": 600.0}
             if state == "finished" else {}
         )
 
@@ -140,3 +139,11 @@ class TestWandbExtractorSyncLag:
         api = _FakeApi([RuntimeError("must not be called")])
         rows = _extractor(api).extract(_plan(), None, 137)
         assert rows[0]["status"] == "CRASH" and "exit_code=137" in rows[0]["notes"]
+
+    def test_world_model_train_metric_recorded(self):
+        # TD-MPC2 logs train/success_once, not eval/* — must record a real KEEP, not score-0 degraded
+        api = _FakeApi([[_FakeRun("finished", success=0.84, metric="train/success_once")]])
+        rows = _extractor(api).extract(_plan(method="tdmpc2", seed=1), None, 0)
+        assert rows[0]["status"] == "KEEP" and rows[0]["score"] == 0.84
+        assert rows[0]["success_metric"] == "train/success_once"
+        assert "degraded" not in rows[0].get("notes", "")
