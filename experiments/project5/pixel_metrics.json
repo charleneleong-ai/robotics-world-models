@@ -1,0 +1,3 @@
+[
+  {"model": "PatchCore", "dataset": "MVTec cable", "image_AUROC": 0.983, "pixel_AUROC": 0.986, "pixel_AUPRO": 0.916}
+]
