@@ -22,5 +22,7 @@ configs:
   tdmpc2:                       # world model under test — ManiSkill-tuned PegInsertionSide config
     launcher: benchmarks/ManiSkill/examples/baselines/tdmpc2/train.py
     overrides: { model_size: 5, steps: 2_000_000, num_envs: 32, control_mode: pd_joint_delta_pos, buffer_size: 1_000_000 }
-    timeout_min: 720
+    # 30h cap: TD-MPC2's MPC planning is slow per-step (~1M steps in ~12h at num_envs=32),
+    # so 2M needs ~24h/seed — the earlier 720min cap SIGTERM'd all 3 seeds at ~1M (still climbing).
+    timeout_min: 1800
     seeds: [1, 2, 3]
