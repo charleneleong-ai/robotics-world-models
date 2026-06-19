@@ -1,0 +1,21 @@
+# Validation sweep: does num_envs=128 reach the same PegInsertionSide success as the
+# proven num_envs=32 config, but faster wall-clock? Separate task tag so it does NOT
+# pollute the 32-env 3-seed mean (0.84). 1 seed is enough to validate speed+convergence;
+# if it converges to ~0.8+ in materially less wall-clock, adopt 128 (or higher) as the
+# default for all future TD-MPC2 runs. Identical to the 32-env config except num_envs.
+task: peginsertion_nenv128
+env_id: PegInsertionSide-v1
+obs: state
+description: >
+  num_envs=128 throughput validation vs the proven num_envs=32 baseline (mean 0.84 @ ~1M,
+  ~40h/seed). Same model_size/steps/control_mode/buffer; only num_envs differs. The 80GB
+  GPU was ~73% idle at num_envs=32 — more parallel envs should fill it and cut wall-clock
+  ~3-5x. Watch: does success still reach ~0.8+ by 2M (convergence not hurt by the changed
+  data/update ratio), and how much faster is the wall-clock to 2M?
+
+configs:
+  tdmpc2:
+    launcher: benchmarks/ManiSkill/examples/baselines/tdmpc2/train.py
+    overrides: { model_size: 5, steps: 2_000_000, num_envs: 128, control_mode: pd_joint_delta_pos, buffer_size: 1_000_000 }
+    timeout_min: 1800
+    seeds: [1]
