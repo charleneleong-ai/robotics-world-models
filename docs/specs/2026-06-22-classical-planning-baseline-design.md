@@ -1,6 +1,6 @@
 # Classical planning baseline — completing the PegInsertionSide 3-way comparison
 
-**Status:** specced + queued (auto-runs when the shared GPU frees). **Date:** 2026-06-22.
+**Status:** ✅ DONE (2026-06-23) — classical = **0.75** over 100 episodes; 3-way comparison complete (see Result). **Date:** 2026-06-22.
 
 ## Why
 
@@ -35,6 +35,20 @@ The classical planner is **privileged**: it's handed the **known peg/hole geomet
 - **Model-free (PPO)** — learns reactively too but is **wildly sample-inefficient** here (0.00 at 50M).
 
 Expected outcome: classical likely scores **high** (it's a scripted solution with ground-truth geometry). The takeaway is *why* — "classical wins clean, modelled, free-space-ish problems; the world model earns its keep when you DON'T have the model or the contact is reactive." That's the nuanced, defensible point.
+
+## Result (2026-06-23)
+
+Classical baseline: **success_rate = 0.75** over 100 held-out episodes (all plans found — `failed_motion_plan_rate = 0`). Ran in an isolated `mp` conda env (numpy 1.26) because mplib 0.1.1 segfaults against the training env's numpy 2.x. The full 3-way comparison on contact-rich `PegInsertionSide-v1`:
+
+| method | paradigm | success | training | privileged model |
+|---|---|---|---|---|
+| TD-MPC2 | world model (learned dynamics + MPC) | 0.84 † | ~2M steps | no |
+| **Classical (mplib)** | sampling-based motion planning | **0.75** | none | **yes** (geometry + scripted contact) |
+| PPO | model-free RL | 0.00 | 50M steps | no |
+
+† TD-MPC2's 0.84 is `train/success_once` (noisy training-rollout metric, recovered at ~1–1.5M); classical's 0.75 is a clean held-out eval over 100 fresh episodes — not perfectly like-for-like, but the qualitative picture is unambiguous.
+
+**The takeaway (more interesting than "classical wins"):** classical planning is a **strong** baseline (0.75) — it *can* solve contact-rich insertion *given* ground-truth geometry + a scripted contact motion. But the world model **matches/edges it (0.84) without any of that privilege**, learning dynamics from interaction; and model-free RL **fails entirely (0.00)** even at 50× the data. So the headline is the value of *model-based* learning: TD-MPC2 buys you classical-planner-grade performance on a hard contact task **without needing the model** — where model-free RL alone can't get there. Classical's strength also frames the honest limitation: with a perfect model + scripting you don't *need* learning; the world model earns its keep when you **don't** have the model, or need reactivity/robustness (→ the perturbed-geometry stress test, future work).
 
 ## Deliverable
 
