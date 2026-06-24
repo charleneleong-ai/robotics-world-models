@@ -1,6 +1,6 @@
 # Robustness stress test — privileged-model brittleness vs world-model robustness
 
-**Status:** specced (2026-06-23). World-model arm **gated on a TD-MPC2 checkpoint** (none exists yet). **PR:** robustness-stress-test.
+**Status:** harness built + deployed + smoke-validated (2026-06-24). The clean TD-MPC2 PegInsertion run is **in-flight and ~complete** on the A100; an armed watcher → orchestrator runs both noise sweeps + the divergence plot the moment `final.pt` lands, then hands off to PlugCharger. **PR:** robustness-stress-test.
 
 ## Why — the most compelling version of the argument
 
@@ -19,24 +19,24 @@ Sweep a perturbation magnitude σ and measure success rate for each method:
 
 `success_rate` vs σ, per method (100 episodes each σ). Headline = the **divergence point** + the area between the classical and world-model curves. Plus a side-by-side rollout video at a mid σ (planner missing vs policy recovering).
 
-## ⚠️ The gate (honest scoping)
+## The gate (resolved)
 
-| arm | feasible now? | why |
+| arm | status | how |
 |---|---|---|
-| **Classical under noise** | ✅ yes | clean pose-injection point in the solution; runs in the isolated `mp` env (numpy<2), ~minutes |
-| **World model under noise** | ❌ **gated** | needs a trained **TD-MPC2 PegInsertion checkpoint** to eval (via `tdmpc2/evaluate.py`). The killed runs saved **none** (only a PickCube smoke `final.pt`). |
+| **Classical under noise** | ✅ built + smoke-validated | `classical_noise_sweep.py` perturbs only the *perceived* peg/goal pose the planner aligns to (grasp stays on the true peg); physics object is unmoved → open-loop miss. Runs under `/workspace/mplib_venv` (numpy 1.26 — the box's numpy 2.x SIGSEGVs mplib). Smoke (n=5): σ=0 → 0.40, σ=20 mm → **0.00**. |
+| **World model under noise** | ✅ built, pending `final.pt` | `wm_noise_eval.py` replicates the `evaluate.py` loop + injects `obs += (σ/1000)·randn` before each `agent.act`. Pipeline validated end-to-end against the smoke checkpoint. The cancelled clean-2M run is **revived and ~complete**, so the real checkpoint is hours away, not gone. |
 
-So the **world-model arm requires first getting a clean TD-MPC2 PegInsertion run to completion** (which saves `final.pt`) — i.e. reviving the clean-2M sequential run we cancelled, when the GPU is free. The stress test is therefore **chained behind a clean TD-MPC2 run**. Without it, only the classical-collapse half is measurable (half the argument — informative, but not the contrast).
+The two arms are no longer sequenced by hand: a watcher waits for `final.pt`, then the orchestrator runs the full sweep before yielding the box.
 
-## Implementation
+## Implementation (built — `experiments/stress_test/`)
 
-- `experiments/stress/classical_noise_sweep.py` — copies the `peg_insertion_side` solve logic, injects pose noise at level σ, runs N episodes per σ, writes `results.json` (σ → success). Runnable now (mp env).
-- World-model arm — `tdmpc2/evaluate.py checkpoint=<final.pt>` wrapped to add obs noise; **pending the checkpoint**.
+- `classical_noise_sweep.py` · `wm_noise_eval.py` — the two arms above (typer CLIs, `--sigmas-mm 0,5,10,15,20`).
+- `plot_divergence.py` — success-vs-σ curves for both methods → `divergence.png`.
+- `stress_then_plugcharger.sh` — orchestrator (deployed `/workspace/`): WM eval → classical sweep → plot, each best-effort, then launches PlugCharger TD-MPC2 (W&B on). Invoked by the stress-first watcher on `final.pt`.
 
-## Queue plan (options for the operator)
+## Queue plan — active
 
-1. **Classical-only now:** queue the classical-noise sweep (GPU-free auto-launch, mp env) → the collapse curve lands in minutes. World-model arm added later.
-2. **Full, chained:** when the GPU frees → clean TD-MPC2 run to completion (~24h, also yields the converged number + checkpoint) → then both noise sweeps → the full divergence plot. One hands-off pipeline, but it re-introduces the multi-day TD-MPC2 run we cancelled.
+**Full, chained, autonomous:** the in-flight clean TD-MPC2 run completes (~done) → `final.pt` saved → watcher fires the orchestrator → both noise sweeps + divergence plot → PlugCharger training. No manual steps; the watcher *holds* PlugCharger behind the stress test so it can't jump the queue.
 
 ## Out of scope / sub-options
 
