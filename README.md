@@ -11,9 +11,9 @@ into [`autoresearch`](https://github.com/charleneleong-ai/autoresearch).
 
 ## Demo — PegInsertionSide
 
-<video src="https://github.com/charleneleong-ai/robotics-world-models/raw/main/assets/peginsertion_rollout.mp4" controls muted loop width="600"></video>
+![8 parallel PegInsertionSide-v1 rollouts](assets/peginsertion_rollout.gif)
 
-_8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task that anchors the **world-model (TD-MPC2) vs model-free (PPO) vs classical-planner** comparison. ([`assets/peginsertion_rollout.mp4`](assets/peginsertion_rollout.mp4) if the embed doesn't render.)_
+_8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task that anchors the **world-model (TD-MPC2) vs model-free (PPO) vs classical-planner** comparison. ([full-res mp4](assets/peginsertion_rollout.mp4))_
 
 ## Status
 
