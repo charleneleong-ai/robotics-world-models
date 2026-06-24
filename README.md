@@ -13,7 +13,7 @@ into [`autoresearch`](https://github.com/charleneleong-ai/autoresearch).
 
 ![8 parallel PegInsertionSide-v1 rollouts](assets/peginsertion_rollout.gif)
 
-_8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task that anchors the **world-model (TD-MPC2) vs model-free (PPO) vs classical-planner** comparison. ([full-res mp4](assets/peginsertion_rollout.mp4))_
+_8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task that anchors the **world-model (TD-MPC2) vs model-free (PPO) vs classical-planner** comparison._
 
 ## Status
 
