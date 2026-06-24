@@ -1,0 +1,11 @@
+{
+  "task": "PegInsertionSide-v1 (state, contact-rich)",
+  "method": "classical (ManiSkill mplib RRTConnect + scripted screw-insertion)",
+  "n_episodes": 100,
+  "success_rate": 0.75,
+  "failed_motion_plan_rate": 0.0,
+  "avg_episode_length": 151,
+  "max_episode_length": 203,
+  "metric": "held-out eval success_rate over 100 fresh episodes",
+  "info": "open-loop motion planning with PRIVILEGED ground-truth geometry + a scripted contact sub-motion; zero training. Env: numpy<2 isolated 'mp' conda env (mplib 0.1.1 segfaults vs numpy 2.x)."
+}
