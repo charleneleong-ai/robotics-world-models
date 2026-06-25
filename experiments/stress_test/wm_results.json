@@ -1,0 +1,27 @@
+[
+  {
+    "sigma_mm": 0.0,
+    "n": 100,
+    "success_rate": 0.95
+  },
+  {
+    "sigma_mm": 5.0,
+    "n": 100,
+    "success_rate": 0.83
+  },
+  {
+    "sigma_mm": 10.0,
+    "n": 100,
+    "success_rate": 0.36
+  },
+  {
+    "sigma_mm": 15.0,
+    "n": 100,
+    "success_rate": 0.1
+  },
+  {
+    "sigma_mm": 20.0,
+    "n": 100,
+    "success_rate": 0.0
+  }
+]
