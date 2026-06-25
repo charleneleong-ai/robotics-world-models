@@ -12,13 +12,12 @@ TDMPC2_DIR=/workspace/ManiSkill/examples/baselines/tdmpc2
 MPLIB_PY=/workspace/mplib_venv/bin/python   # numpy 1.26 + mplib (no segfault)
 SYS_PY=python3                              # torch + CUDA + matplotlib
 LOGDIR=/workspace/logs
-TS=$(date -u +%Y%m%dT%H%M%SZ)
-LOG="${LOGDIR}/stress_then_plugcharger_${TS}.log"
 WM_CKPT=/workspace/ManiSkill/examples/baselines/tdmpc2/logs/PegInsertionSide-v1/1/tdmpc2-vast/models/final.pt
 
 mkdir -p "${LOGDIR}" "${STRESS_DIR}"
 
-log() { echo "[$(date -u +%H:%M:%SZ)] $*" | tee -a "${LOG}"; }
+# stdout is captured by the launcher's redirect — no separate per-run logfile.
+log() { echo "[$(date -u +%H:%M:%SZ)] $*"; }
 
 log "=== stress_then_plugcharger START ==="
 
@@ -29,7 +28,7 @@ if [ -f "${WM_CKPT}" ]; then
       --checkpoint "${WM_CKPT}" \
       --sigmas-mm 0,5,10,15,20 \
       --eval-episodes 25 \
-      --out "${STRESS_DIR}/wm_results.json" ) >>"${LOG}" 2>&1 \
+      --out "${STRESS_DIR}/wm_results.json" ) 2>&1 \
     && log "WM eval OK" || log "WM eval FAILED (continuing)"
 else
   log "WM checkpoint not found at ${WM_CKPT} (skipping WM eval)"
@@ -40,7 +39,7 @@ log "--- (b) Classical noise sweep ---"
 ( cd "${TDMPC2_DIR}" && "${MPLIB_PY}" -u "${STRESS_DIR}/classical_noise_sweep.py" \
     --sigmas-mm 0,5,10,15,20 \
     --n 50 \
-    --out "${STRESS_DIR}/classical_results.json" ) >>"${LOG}" 2>&1 \
+    --out "${STRESS_DIR}/classical_results.json" ) 2>&1 \
   && log "Classical sweep OK" || log "Classical sweep FAILED (continuing)"
 
 # (c) Divergence plot.
@@ -48,7 +47,7 @@ log "--- (c) Divergence plot ---"
 ( cd "${STRESS_DIR}" && "${SYS_PY}" -u "${STRESS_DIR}/plot_divergence.py" \
     --classical "${STRESS_DIR}/classical_results.json" \
     --wm "${STRESS_DIR}/wm_results.json" \
-    --out "${STRESS_DIR}/divergence.png" ) >>"${LOG}" 2>&1 \
+    --out "${STRESS_DIR}/divergence.png" ) 2>&1 \
   && log "Plot OK -> ${STRESS_DIR}/divergence.png" || log "Plot FAILED (continuing)"
 
 # (d) Launch PlugCharger TD-MPC2 training, fully detached.

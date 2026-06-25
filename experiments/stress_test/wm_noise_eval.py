@@ -25,10 +25,11 @@ from pathlib import Path
 os.environ.setdefault("MUJOCO_GL", "egl")
 warnings.filterwarnings("ignore")
 
-import hydra.utils
-import torch
-import typer
-from omegaconf import OmegaConf
+# These follow the MUJOCO_GL / warnings setup above, which must run before torch loads.
+import hydra.utils  # noqa: E402
+import torch  # noqa: E402
+import typer  # noqa: E402
+from omegaconf import OmegaConf  # noqa: E402
 
 TDMPC2_DIR = Path(__file__).resolve().parent
 DEFAULT_TDMPC2_DIR = Path("/workspace/ManiSkill/examples/baselines/tdmpc2")
