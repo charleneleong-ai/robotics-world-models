@@ -1,6 +1,6 @@
 # PlugChargerDense — TD-MPC2 at the edge of its reach
 
-**Status:** done (2026-06-27). Honest null *with signal* — eval success 0, but the policy grazes success ~10× in exploration. Motivates the demo-augmented follow-up.
+**Status:** done (2026-07-03). **Exhaustive null** — TD-MPC2 can't crack PlugCharger's two-prong sub-mm insertion in 2M under *any* tried approach (from-scratch → reward v1–v4 → demos → persistent demo-RL → staged-reward demo-RL, all eval success 0). A task-difficulty wall, not a reward gap. Bounds model-based RL's reach alongside StackCube solved (1.0). See the final result table below.
 
 ## Why a dense reward at all
 Stock `PlugCharger-v1` ships **sparse-only** (`SUPPORTED_REWARD_MODES = ["none", "sparse"]` — the authors deliberately excluded dense). With no shaping, TD-MPC2 gets zero signal until a chance success it never finds from scratch (observed: flat `R=0` for 6 h). To make the task RL-tractable we wrote a staged dense reward — [`experiments/envs/plugcharger_dense.py`](../../experiments/envs/plugcharger_dense.py) (`PlugChargerDense-v1`): reach → touch → grasp → insert, with an **angular** alignment term the round-peg PegInsertion reward never needed (success here requires `obj_to_goal_angle <= 0.2`).
@@ -27,8 +27,19 @@ The v1→v3 progression is the engineering story: a reward-hacking exploit, diag
 ## Contrast — StackCube *is* solved
 Same algorithm, budget (2M), compute, and reward rigor → [`tdmpc2-stackcube`](https://wandb.ai/chaleong/wm-manip/runs/th868utn) reaches **eval success 1.0**. So PlugCharger's 0 is not a method or implementation failure — it's the task's intrinsic two-prong insertion tolerance (even the *privileged* mplib classical planner only hits ~0.7). This pins where model-based RL's reach ends on a clean difficulty gradient: PickCube (trivial) → PegInsertion (0.84) → StackCube (1.0) → PlugCharger (0.0).
 
-## Next steps
+## The exhaustive null (final)
 
-**In progress — demonstration-augmented RL.** The near-misses are the textbook signature for demo-augmentation: the agent reaches success states but too rarely to learn from. A first cut seeding 23 solver demos into the *online* buffer failed — ~0.5% of the 1M circular buffer (too dilute) and evicted by ~1M steps; eval stayed 0. The proper version — **150 demos in a *persistent* demo buffer sampled at a fixed 25% every update** (DDPGfD-style, so demos never dilute or evict) — is the live test. Demos also carry information a pose-distance reward fundamentally can't: the contact-rich *threading approach* (the two prongs must enter along the correct axis; a charger "at the goal pose" via a wrong approach is jammed against the socket face).
+We pulled every legitimate lever. Each was implemented, validated, and run to a full 2M steps. **Eval success stayed at exactly 0 for all of them:**
 
-**Reserve lever (v5), only if demo-RL doesn't crack it.** Split the collapsed insertion term into staged *align-then-insert*, mirroring PegInsertion's reward: first reward getting the prong tips into the socket's approach *plane* (yz), then separately reward inserting *along* the axis (x). This decomposes the approach that a single `1-tanh(dist+angle)` term flattens. Held as a **fallback, not run concurrently** — changing the reward and adding demo-RL at the same time would confound which one helped.
+| approach | eval success (2M) | note |
+|---|---|---|
+| from-scratch, sparse | 0 | no signal (stock env has no dense reward) |
+| dense reward v1 | 0 | *farmed* — R→104 while success 0 (reward-hacking, fixed) |
+| dense reward v2–v4 | 0 | farm-proof, completion-dominant, "reward-the-hold" | grazed success ~10× in exploration, never reproduced |
+| + demos, seeded in online buffer (23) | 0 | too dilute (0.5% of a 1M circular buffer) + evicted |
+| + demos, **persistent buffer**, 25% ratio (112) | 0 | DDPGfD-style; demos never dilute or evict — `plugcharger-demoRL` |
+| + demos + **v5 staged align-then-insert reward** | 0 | geometry-validated decomposition — `plugcharger-v5-demoRL` |
+
+**The decisive data point:** the v5 staged reward — which decomposes the approach a single pose-distance term can't express, and which a solver demo replayed through it earns monotonically to a peak at success — was **optimized by the policy to `train/reward = 38.9`** (vs v4's 17.2) while `eval/success_once` stayed **0/40**. A well-shaped reward, driven hard, still could not produce the terminal maneuver. So this is **not a reward-shaping gap** — it's a **task-difficulty wall**: PlugCharger's two-prong, sub-mm, sub-0.2-rad keyed insertion is beyond TD-MPC2 at this budget, with or without demonstrations.
+
+**Verdict.** Paired with **StackCube solved (1.0)** under the identical method, budget, and rigor, this cleanly bounds where model-based RL's reach ends on the contact-difficulty gradient: PickCube (trivial) → PegInsertion (0.84) → StackCube (1.0) → **PlugCharger (0.0, even the privileged classical planner only ~0.7)**. The value here is the *rigor of the null*, not a headline number — every fixable cause was ruled out.
