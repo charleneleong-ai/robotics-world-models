@@ -1,6 +1,8 @@
 # Planning-augmented action selection on the DreamerV3 world model
 
-**Status:** 📋 SPEC — queued. **Date:** 2026-07-13.
+**Status:** ✅ EXECUTED (2026-07-15) — **NO-GO**, root cause identified. **Date:** 2026-07-13.
+
+> **Result:** The CEM planner (N=256, H=28) built cleanly inside danijar's jitted RSSM (~1.3 fps vs ~230 reactive) but did **not** rescue PickCube — grasp 1.0, success 0. The decisive diagnostic (teacher-forcing a success demo through the world model) showed the reward head predicts ~0.09 at the placed/success states where the true reward is 0.59→1.0: the world model never learned the success payoff, because the stalling reactive actor never visits those states. **The cap is world-model accuracy in policy-under-visited regions (a coverage↔accuracy coupling), not the action-selection mechanism** — so planning cannot help. Full writeup folded into [`plugchargerdense.md`](../experiments/plugchargerdense.md#follow-up--planning-on-the-same-world-model-does-not-rescue-it-a-coverageaccuracy-wall).
 
 ## Why
 
