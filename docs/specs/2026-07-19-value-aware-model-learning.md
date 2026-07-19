@@ -34,7 +34,7 @@ The whole finding is on trivial PickCube, so that's the gate. Two measurements, 
 
 ## Honest framing
 
-This is the **highest-leverage** follow-up: it takes a problem *we measured ourselves* and applies a *named, recent* method (HarmonyDream / VaGraM / ViVa) to it — the strongest "found a problem → connected it to the frontier → fixed it" arc. Effort is moderate (loss-reweighting + batch-sampling changes to the WM training, both on the existing setup — no new algorithm). The main risk is that DreamerV3's harmonization / loss-scale internals fight a clean reward-up-weighting; if so, the demo-up-weighting-in-WM-loss lever is the simpler fallback and independently informative.
+This applies a *named, recent* method (HarmonyDream / VaGraM / ViVa) directly to the failure mode measured in PR #10, rather than adding an unrelated lever — the most targeted available follow-up. Effort is moderate (loss-reweighting + batch-sampling changes to the WM training, both on the existing setup — no new algorithm). The main risk is that DreamerV3's harmonization / loss-scale internals fight a clean reward-up-weighting; if so, the demo-up-weighting-in-WM-loss lever is the simpler fallback and independently informative.
 
 ## Deliverable
 
