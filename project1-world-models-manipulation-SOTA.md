@@ -22,6 +22,44 @@
 
 ---
 
+## State of the field — 2026-07 field scan
+
+*Added 2026-07-16. The sections below (written 2026-06-22) capture the baseline stack this project built on — TD-MPC2, DreamerV3, diffusion policy, ACT, RLPD (all 2023–24 vintage). This scan records what has moved since, and how each shift relates to the [PlugCharger paradigm study](docs/experiments/plugchargerdense.md).*
+
+### The paradigm shift — VLAs + RL fine-tuning
+The dominant recipe is no longer per-task from-scratch policy learning; it is **pretrain a large vision-language-action (VLA) model, then RL-refine**. This reframes our central result (from-scratch RL/planning cannot *discover* the skill): the field pretrains a prior precisely to avoid that failure.
+- [GigaBrain-0.5M](https://hf.co/papers/2602.12099) (Feb 2026) — a VLA that learns from world-model-based RL.
+- [EXPO-FT](https://hf.co/papers/2605.25477) (Finn, May 2026), [VLA-RL](https://hf.co/papers/2505.18719) — sample-efficient RL fine-tuning of pretrained VLAs.
+- [Refined Policy Distillation](https://hf.co/papers/2503.05833), [SA-VLA](https://hf.co/papers/2602.00743) (spatially-aware flow-matching RL), [ExToken](https://hf.co/papers/2607.12931) (structured exploration), [Object-Centric Residual RL](https://hf.co/papers/2606.18953) (zero-shot sim2real).
+- Survey: [Large VLM-based VLA Models for Robotic Manipulation](https://hf.co/papers/2508.13073) (Aug 2025).
+
+### World models as policy *evaluators* (not just training envs)
+A major new use we did not touch: a generative world model as a **policy evaluator** — predict/rank rollout outcomes without real testing. This is Wayve's core use of GAIA.
+- [Gemini Robotics × Veo simulator](https://hf.co/papers/2512.10675) (Dec 2025), [WorldGym](https://hf.co/papers/2506.00613), [Scalable Policy Evaluation with Video World Models](https://hf.co/papers/2511.11520), [OSCAR](https://hf.co/papers/2606.04463) (cross-embodiment eval on Cosmos-Predict2.5).
+- Driving: [DrivingGen](https://hf.co/papers/2601.01528) benchmark, [Drive&Gen](https://hf.co/papers/2510.06209).
+
+### The world-model class shifted — RSSM → video/diffusion foundation models
+Our DreamerV3 is the *small-latent RSSM* generation. The frontier world model is now **action-conditioned video generation** (diffusion/autoregressive), often a foundation model.
+- **NVIDIA Cosmos** — the reference world-foundation-model (WFM) platform for Physical AI. Building blocks: **Predict** (future video), **Transfer** (sim2real/conditional generation), **Reason** (embodied-reasoning VLM), plus a *world-action model*. Trajectory: [Cosmos platform](https://hf.co/papers/2501.03575) (Jan 2025) → [Cosmos-Predict2.5 / Transfer2.5](https://hf.co/papers/2511.00062) (Text/Image/Video2World + Sim2Real + policy eval, Oct 2025) → [Cosmos 3 omnimodal](https://hf.co/papers/2606.02800) (Jun 2026, mixture-of-transformers). Also [Cosmos-Reason1](https://hf.co/papers/2503.15558) (embodied reasoning) and [Cosmos-Drive-Dreams](https://hf.co/papers/2506.09042) (synthetic driving data / long-tail coverage).
+- **Wayve's counterpart:** [GAIA-2](https://hf.co/papers/2503.20523) (controllable multi-view driving WM). NVIDIA's closed-loop AV sim [OmniDreams](https://hf.co/papers/2606.03159) (Jun 2026) is built on Cosmos.
+- **Manipulation-side WMs:** [WMPO](https://hf.co/papers/2511.09515) (pixel WM for VLA RL), [World4RL](https://hf.co/papers/2509.19080) (diffusion WM for policy refinement), [τ₀-WM](https://hf.co/papers/2606.01027) (unified video-action WM), [PAN](https://hf.co/papers/2511.09057) (long-horizon).
+- **Physics-fidelity evals** for generative WMs: [PhyWorld](https://hf.co/papers/2605.19242), [VideoPhy](https://hf.co/papers/2406.03520), [Physics-IQ](https://hf.co/papers/2606.18943).
+
+### Our PlugCharger finding is a named, active problem — objective mismatch / value-aware model learning
+The [coverage↔accuracy wall](docs/experiments/plugchargerdense.md) diagnosed in PR #10 (the WM's reward/value heads are inaccurate in the terminal region the stalling actor never visits, so planning cannot target it) sits squarely in an established literature — which both *validates* it and supplies candidate fixes:
+- [Objective Mismatch in MBRL](https://hf.co/papers/2002.04523) — optimizing forward dynamics ≠ improving control (the seminal framing).
+- [HarmonyDream](https://hf.co/papers/2310.00344) — balancing observation vs **reward** modeling inside the world model; directly targets our under-trained-reward-head symptom.
+- [Scaling World-Model RL through Diffusion Policy Optimization](https://hf.co/papers/2605.26282) (May 2026) — "misalignment between search and value learning," precisely our planner-can't-target-what-value-can't-see result.
+- [ViVa](https://hf.co/papers/2604.08168) (Apr 2026) — a video-generative **value** model; addresses the value under-prediction we measured.
+
+### What's worth trying next (mapped to this study)
+| # | direction | why it fits |
+|---|---|---|
+| 1 | **Value-aware model learning** (HarmonyDream / VaGraM / ViVa) on the Dreamer setup | *Fixes the exact coverage↔accuracy wall* from PR #10 — closes the loop by applying a named SOTA method to our own measured problem |
+| 2 | **World-model-as-evaluator** harness on the task ladder | New capability, **Wayve-core** (their GAIA use); differentiated, reuses existing infra |
+| 3 | **VLA + RL fine-tune** (OpenVLA / π0 + EXPO-FT / VLA-RL) on our tasks | The current SOTA paradigm; gives the "pretrained prior beats from-scratch" contrast our study predicts |
+| 4 | Swap Dreamer's RSSM for a **video/diffusion WM** (World4RL / WMPO / Cosmos-derived) | Frontier WM class; tests whether a richer generative WM escapes the trap we found |
+
 ## 1. Simulators
 
 A Dreamer-style world model is **off-policy and model-based** — you train latent dynamics from replayed experience, so you do **not** need the extreme on-policy throughput PPO-on-16k-envs demands. What you need: clean manipulation tasks, image (RGBD) observations, moderate-to-high parallel rollout to fill a replay buffer, and an install that actually works on an A100.
