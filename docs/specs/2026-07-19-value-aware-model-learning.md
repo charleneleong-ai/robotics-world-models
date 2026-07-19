@@ -1,6 +1,8 @@
 # Value-aware model learning — fixing the coverage↔accuracy wall
 
-**Status:** 📋 SPEC — queued. **Date:** 2026-07-19.
+**Status:** ✅ EXECUTED (2026-07-19) — **PARTIAL**: the lever works but doesn't fully close the wall. **Date:** 2026-07-19.
+
+> **Result:** Up-weighting the reward loss (10× + per-frame `×(1+10·reward+30·|Δreward|)`) plus 50% demo-success oversampling in the WM batches moved the reward head's prediction at the demo success state from **0.09 → 0.47 (~5×)** and flipped the gradient from steering-away to holding through the success region — confirming the wall is loss-addressable. But it under-predicts the full 1.0 cliff (a ~0.47 plateau; success frames are still ~0.7% of batches), and task success stays 0 because the actor never learned to *place* (0.035). So value-aware learning is **necessary but not sufficient** — the residual needs a sharper reward-cliff model *and* a placing policy. Full result folded into [`plugchargerdense.md`](../experiments/plugchargerdense.md#follow-up-2--value-aware-model-learning-partially-closes-the-wall).
 
 ## Why
 
