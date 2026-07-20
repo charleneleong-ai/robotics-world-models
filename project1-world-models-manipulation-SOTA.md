@@ -2,9 +2,7 @@
 
 > **Goal:** Train a learned world model (Dreamer-style latent dynamics) for a robotic manipulation task in simulation, use it for model-based planning, and benchmark against classical motion planning (MoveIt/OMPL).
 >
-> **Target role:** World Models / Embodied AI research engineer at a robotics + world-models lab (Reka).
->
-> **Author background relevant to this project:** production CV (segmentation), distributed A100 training, eval pipelines, and 2018–19 ROS + MoveIt! / OMPL industrial-arm motion planning + Bayesian optimization. The classical-planning baseline is a genuine differentiator — most ML candidates cannot run a fair one.
+> **Relevant background for this project:** production CV (segmentation), distributed A100 training, eval pipelines, and 2018–19 ROS + MoveIt! / OMPL industrial-arm motion planning + Bayesian optimization. The classical-planning baseline is a genuine strength — a fair one is rarely run.
 >
 > **Verification note:** All repo URLs, star counts, releases, arxiv IDs, and licenses below were verified against live sources on **2026-06-12**. Star counts are approximate (GitHub rounds and they move daily).
 
@@ -117,7 +115,7 @@ The honest theme: **frontier video world models are datacenter-only to train.** 
 | **DreamerV3** | "Mastering Diverse Domains through World Models," Hafner et al. — published in **Nature 2025**, arxiv [2301.04104](https://arxiv.org/abs/2301.04104). RSSM latent world model, learns a policy in imagination. **Single GPU, JAX**, maintained: [danijar/dreamerv3](https://github.com/danijar/dreamerv3). Atari/Crafter/DMLab/Minecraft. **No native robot-manipulation suite**, but the architecture ports to any gym-style env. The reference "stable online world-model RL" baseline. |
 | **Dreamer 4 (current latest)** | "Training Agents Inside of Scalable World Models," **Hafner, Yan, Lillicrap, 2025**, arxiv [2509.24527](https://arxiv.org/abs/2509.24527), [project page](https://danijar.com/project/dreamer4/). A pivot from V3: the world model is now a **conditional latent video-diffusion transformer** with a "shortcut forcing" objective, trained **offline** on ~2500h of action-labeled Minecraft video. First agent to mine diamonds in Minecraft purely offline. **Real-time interactive inference on a single GPU** — but that's inference; full training is large-scale. Explicitly demonstrates a **robotics dataset** with counterfactual rollouts. **No official danijar code release yet**; community ports exist (see §3). |
 
-**Solo-dev verdict:** **DreamerV3 is fully tractable and the safest portfolio anchor** — single GPU, maintained, easy to point at a manipulation env. **Dreamer 4 inference may be runnable, but training/reproducing it is not a clean solo project yet** — position it as the *direction*, not the deliverable. Note the line's center of gravity has moved toward **offline + video-diffusion world models**.
+**Solo verdict:** **DreamerV3 is fully tractable and the safest anchor** — single GPU, maintained, easy to point at a manipulation env. **Dreamer 4 inference may be runnable, but training/reproducing it is not a clean solo project yet** — position it as the *direction*, not the deliverable. Note the line's center of gravity has moved toward **offline + video-diffusion world models**.
 
 ### TD-MPC2
 
@@ -144,7 +142,7 @@ The open/closed split is stark. **Fully closed (no local path):** all DeepMind *
 
 **Latest: V-JEPA 2 + V-JEPA 2-AC** (Meta, June 2025), arxiv [2506.09985](https://arxiv.org/abs/2506.09985), [github.com/facebookresearch/vjepa2](https://github.com/facebookresearch/vjepa2), **MIT-licensed weights**. **No V-JEPA 3 exists** (2026 follow-ups are V-JEPA 2.1 dense-feature recipe and VL-JEPA [2512.10942](https://arxiv.org/abs/2512.10942), neither robotics-action-focused). **It IS action-conditioned and used for planning:** V-JEPA 2-AC is a ~300M-param predictor post-trained on a **frozen ViT-g encoder** on <62h of unlabeled DROID robot video. It plans by **energy minimization via Cross-Entropy-Method MPC in latent space**. Zero-shot Franka results across two labs: Reach 100%, Pick-and-place 65–80%, Grasp 25–65%, deployed with no data from the deployment labs.
 
-**Solo-dev verdict:** Pretraining (22M videos, >1M hours, 1B-param ViT-g) is **datacenter-only — do not attempt.** But **CEM-MPC planning inference runs on ONE consumer GPU (~16s/action on RTX 4090)**, and **fine-tuning the ~300M AC predictor on a frozen encoder with your own robot video is the realistic solo entry point** (few A100s, days). The strongest *self-supervised, real-manipulation, planning-capable* open release.
+**Solo verdict:** Pretraining (22M videos, >1M hours, 1B-param ViT-g) is **datacenter-only — do not attempt.** But **CEM-MPC planning inference runs on ONE consumer GPU (~16s/action on RTX 4090)**, and **fine-tuning the ~300M AC predictor on a frozen encoder with your own robot video is the realistic solo entry point** (few A100s, days). The strongest *self-supervised, real-manipulation, planning-capable* open release.
 
 ### Diffusion / transformer dynamics models for model-based control
 
@@ -156,14 +154,14 @@ The open/closed split is stark. **Fully closed (no local path):** all DeepMind *
 
 ### Recommendations
 
-**PRIMARY (tractable, reproducible, strong portfolio signal): TD-MPC2 anchor + DreamerV3 same-family baseline, with V-JEPA 2-AC as the modern headline.**
+**PRIMARY (tractable, reproducible, strong result): TD-MPC2 anchor + DreamerV3 same-family baseline, with V-JEPA 2-AC as the modern headline.**
 - **TD-MPC2** as the model-based RL backbone: single GPU, PyTorch, real manipulation benchmarks (Meta-World, ManiSkill2), 300+ checkpoints, ICLR 2024 pedigree. A complete model-based-RL-for-manipulation result on one A100 in days.
 - **DreamerV3** as the same-family world-model comparison (per your own "always establish a baseline" rule).
-- **V-JEPA 2-AC** for the "I understand 2025–26 world models" signal: SOTA self-supervised, action-conditioned, planning-capable, MIT weights, single-GPU latent MPC on a real Franka. Fine-tuning the ~300M AC head is genuinely solo-feasible. If forced to pick one, **TD-MPC2** is the lowest-risk anchor; **V-JEPA 2-AC** is the higher-signal modern piece.
+- **V-JEPA 2-AC** for the "I understand 2025–26 world models" signal: SOTA self-supervised, action-conditioned, planning-capable, MIT weights, single-GPU latent MPC on a real Franka. Fine-tuning the ~300M AC head is genuinely solo-feasible. If forced to pick one, **TD-MPC2** is the lowest-risk anchor; **V-JEPA 2-AC** is the more modern, higher-signal choice.
 
 **STRETCH (ambitious video/generative angle): fine-tune iVideoGPT or NVIDIA Cosmos-Predict2.5-2B as a manipulation world model.**
 - **iVideoGPT** — fully open MIT, pretrained on Open-X, explicitly supports MBRL on manipulation, full pipeline fine-tunable on a single GPU. Highest "I implemented the whole MBRL loop" credibility.
-- **Cosmos-Predict2.5-2B** — the only frontier-quality *open* world foundation model a solo dev can run (inference ~32 GB on one 40 GB A100; LoRA on 1–2×80 GB). Strong "physical AI" framing for a lab.
+- **Cosmos-Predict2.5-2B** — the only frontier-quality *open* world foundation model a solo dev can run (inference ~32 GB on one 40 GB A100; LoRA on 1–2×80 GB). Strong "physical AI" framing.
 - **Cosmos3-Nano (16B) + `Cosmos3-Nano-Policy-DROID`** — the current-frontier omnimodal rung that still fits a single A100 80GB for *inference* (~32 GB weights, Ampere-supported). Use it as a **frontier dynamics arm** (zero-shot DROID policy or LoRA) for a frontier-vs-reproducible-vs-classical comparison — **not** a sample-efficiency floor baseline. Verify fine-tune VRAM first.
 - Cite **Dreamer 4** as the exciting frontier reference/motivation, not the deliverable.
 
@@ -178,7 +176,7 @@ All star counts, last-push dates, and frameworks verified live on 2026-06-12.
 | Repo | URL | Stars | Framework | Maintained? (last push) | Install / hardware notes |
 |---|---|---|---|---|---|
 | **DreamerV3 (official)** | https://github.com/danijar/dreamerv3 | ~3,400 | **JAX** | Yes — May 25, 2026 | Python 3.11+. Install JAX first (matching your CUDA), then `pip install -r requirements.txt`. Dockerfile provided. **JAX↔CUDA version mismatch is the #1 install footgun** — no hard pins, you match JAX to your CUDA. GPU strongly recommended. |
-| **dreamerv3-torch** (NM512) | https://github.com/NM512/dreamerv3-torch | ~860 | **PyTorch** | Yes — Mar 8, 2026 | Best-regarded PyTorch reimplementation of DreamerV3. Easy to hack, standard PyTorch+CUDA, no exotic deps. The pragmatic solo-dev choice if you want to avoid JAX. |
+| **dreamerv3-torch** (NM512) | https://github.com/NM512/dreamerv3-torch | ~860 | **PyTorch** | Yes — Mar 8, 2026 | Best-regarded PyTorch reimplementation of DreamerV3. Easy to hack, standard PyTorch+CUDA, no exotic deps. The pragmatic solo choice if you want to avoid JAX. |
 | **TD-MPC2 (official)** | https://github.com/nicklashansen/tdmpc2 | ~860 | **PyTorch** | **Stale — May 21, 2025** | Conda or Docker. Single-task online: 8 GB+ GPU, 12 GB+ RAM. Multi-task offline: 24 GB+ GPU, 128 GB+ RAM. 300+ checkpoints. DMControl/Meta-World/ManiSkill2/MyoSuite (104 tasks). Stable/usable but not actively developed. |
 | **Isaac Lab** | https://github.com/isaac-sim/IsaacLab | ~7,400 | PyTorch (on Isaac Sim) | Yes — daily commits | Heavyweight. Needs Isaac Sim + Omniverse, an **RTX GPU (min RTX 4080, ≥16 GB VRAM rec.)**, CUDA ≥12.4. Ubuntu 22.04 best. Steep solo setup. |
 | **ManiSkill3** | https://github.com/mani-skill/ManiSkill | ~3,000 | PyTorch (SAPIEN) | Yes — Jun 11, 2026 | Repo moved to `mani-skill/ManiSkill`. Still beta (3.0.0bXX). Linux best, no macOS GPU sim. Needs NVIDIA GPU + **Vulkan** for rendering. Python ≥3.10. GPU-parallelized. |
@@ -223,9 +221,9 @@ All star counts, last-push dates, and frameworks verified live on 2026-06-12.
 - State the **exact benchmark version** (Meta-World vs Meta-World+, ManiSkill2 vs 3), success-threshold definition, and eval-time stochasticity. Meta-World+ exists *because* non-comparable setups inflated claims.
 - State **state vs visual** observations clearly — sample-efficiency numbers aren't comparable across them.
 
-### Classical-planning baseline (your differentiator)
+### Classical-planning baseline (the distinctive angle)
 
-Your 2018–19 ROS + MoveIt! / OMPL background makes this the strongest, most distinctive part of the portfolio.
+Your 2018–19 ROS + MoveIt! / OMPL background makes this the strongest, most distinctive part of the project.
 
 **Stack to benchmark against:** **MoveIt 2** (orchestration; default planner = OMPL) → **OMPL** sampling-based planners (**RRT-Connect/BiRRT**, **RRT\***, **PRM/PRM\***, **BIT\*** / Informed-RRT\*) → trajectory optimization (**CHOMP**, **TrajOpt**, MoveIt **Pilz** for deterministic LIN/PTP). Use **MotionBenchMaker** (5 robots × 8 envs, OMPL-compatible logs) → **OMPL Planner Arena** for apples-to-apples plots rather than hand-rolling. ([OMPL](https://ompl.kavrakilab.org/) · [MotionBenchMaker](https://carlosquinterop.github.io/project/motionbenchmaker/))
 
@@ -277,7 +275,7 @@ Ordered must-read → stretch. **[REPRODUCE]** = public code, tractable to run/r
 
 7. **DayDreamer — World Models for Physical Robot Learning** — Wu, Escontrela, Hafner, Goldberg, Abbeel, 2022 — **[REPRODUCE]** — [2206.14176](https://arxiv.org/abs/2206.14176). Dreamer trained directly on physical robots (arm pick-and-place, quadruped walking in 1h). The most direct precedent for your project.
 8. **V-JEPA 2 — Self-Supervised Video Models Enable Understanding, Prediction and Planning** — Assran et al. (Meta), 2025 — **[REPRODUCE — V-JEPA 2-AC is tractable]** — [2506.09985](https://arxiv.org/abs/2506.09985). Frontier of the action-conditioned, non-reconstructing latent world model; zero-shot Franka pick-and-place via MPC; weights public.
-9. **Ctrl-World — A Controllable Generative World Model for Robot Manipulation** — Guo, Shi, Chen, Finn (Stanford/Tsinghua), 2025 (ICLR 2026) — **[REPRODUCE]** — [2510.10125](https://arxiv.org/abs/2510.10125). Closest 2025–26 paper to exactly what you're building; public code + weights. Strong interview talking point.
+9. **Ctrl-World — A Controllable Generative World Model for Robot Manipulation** — Guo, Shi, Chen, Finn (Stanford/Tsinghua), 2025 (ICLR 2026) — **[REPRODUCE]** — [2510.10125](https://arxiv.org/abs/2510.10125). Closest 2025–26 paper to exactly what you're building; public code + weights.
 10. **WMPO — World-Model-based Policy Optimization for VLA Models** — 2025 — **[REPRODUCE]** — [2511.09515](https://arxiv.org/abs/2511.09515). On-policy RL for VLA policies *entirely inside a pixel-based world model*; the integration pattern labs ship.
 
 ### Tier 2 — Diffusion / generative planning. Reproduce the small ones.
@@ -286,11 +284,11 @@ Ordered must-read → stretch. **[REPRODUCE]** = public code, tractable to run/r
 12. **Decision Diffuser — Is Conditional Generative Modeling All You Need?** — Ajay, Du et al., 2022 — **[REPRODUCE]** — [2211.15657](https://arxiv.org/abs/2211.15657). Classifier-free guided diffusion over states; skill/constraint composition at test time; includes Kuka block-stacking.
 13. **UniPi — Learning Universal Policies via Text-Guided Video Generation** — Du, Yang et al., 2023 — **[LANDMARK / partial]** — [2302.00111](https://arxiv.org/abs/2302.00111). The cleanest statement of video-generation-as-policy that Genie/Cosmos/V-JEPA build on.
 
-### Tier 3 — Industrial foundation world models. **[LANDMARK]** — read for framing; these define what the target lab cares about.
+### Tier 3 — Industrial foundation world models. **[LANDMARK]** — read for framing; these define the industrial-frontier direction.
 
 14. **UniSim — Learning Interactive Real-World Simulators** — Yang, Du, Abbeel et al. (DeepMind), 2023 — **[LANDMARK]** — [2310.06114](https://arxiv.org/abs/2310.06114). "One learned simulator of real-world interaction"; intellectual ancestor of Genie/Cosmos.
 15. **Genie — Generative Interactive Environments** — Bruce et al. (DeepMind), 2024 — **[LANDMARK]** — [2402.15391](https://arxiv.org/abs/2402.15391). 11B foundation world model with an unsupervised **latent action model** from unlabeled video. The one Genie paper with a full technical writeup.
-16. **Genie 2 / Genie 3** — DeepMind, 2024 / 2025 — **[LANDMARK — blog only, no arxiv]** — [Genie 2](https://deepmind.google/blog/genie-2-a-large-scale-foundation-world-model/) · [Genie 3](https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/). Real-time (24 fps, 720p), minutes-long-consistent promptable worlds. Know for the interview; cannot reproduce.
+16. **Genie 2 / Genie 3** — DeepMind, 2024 / 2025 — **[LANDMARK — blog only, no arxiv]** — [Genie 2](https://deepmind.google/blog/genie-2-a-large-scale-foundation-world-model/) · [Genie 3](https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models/). Real-time (24 fps, 720p), minutes-long-consistent promptable worlds. Read for framing; cannot reproduce.
 17. **Cosmos World Foundation Model Platform for Physical AI** — NVIDIA, 2025 — **[LANDMARK — open weights, partial]** — [2501.03575](https://arxiv.org/abs/2501.03575). Open-weight WFM platform for robotics → you can post-train/fine-tune even if pretraining is out of reach.
 18. **Cosmos 3 — Omnimodal World Models for Physical AI** — NVIDIA, June 2026 — **[LANDMARK — current frontier]** — [2606.02800](https://arxiv.org/abs/2606.02800). Single mixture-of-transformers unifying VLM + video generation + world simulator + world-action model; "where the field is right now."
 19. **1X World Model Challenge Technical Report** — 2025 — **[LANDMARK / benchmark — REPRODUCE the benchmark]** — [2510.07092](https://arxiv.org/abs/2510.07092). Open humanoid WM benchmark; its **eval methodology** (PSNR future-frame prediction, latent-token cross-entropy) is exactly the kind of world-model evaluation a lab will ask you to design.
@@ -315,7 +313,7 @@ Ordered must-read → stretch. **[REPRODUCE]** = public code, tractable to run/r
 - Prototype the loop first on MuJoCo Playground (JIT compile 1–3 min, then very fast) before scaling on ManiSkill3.
 - Full v0 (one task, ~3 seeds, all baselines, classical comparison, write-up): realistically **~1–2 weeks of part-time work**, dominated by environment/install bring-up and the OMPL harness, not GPU time.
 
-**Then iterate toward the portfolio piece:** add a second contact-rich task (PegInsertion/StackCube), expand to ≥5 seeds with rliable, add DreamerV3-vs-TD-MPC2 as a head-to-head, and write the **classical-vs-learned crossover analysis** as the headline differentiator. **Stretch:** swap in / add V-JEPA 2-AC latent MPC for the "modern world model" signal, or fine-tune iVideoGPT as a generative manipulation world model.
+**Then iterate toward the full project:** add a second contact-rich task (PegInsertion/StackCube), expand to ≥5 seeds with rliable, add DreamerV3-vs-TD-MPC2 as a head-to-head, and write the **classical-vs-learned crossover analysis** as the headline differentiator. **Stretch:** swap in / add V-JEPA 2-AC latent MPC for the "modern world model" signal, or fine-tune iVideoGPT as a generative manipulation world model.
 
 **Honest difficulty notes:**
 - Environment/sim install is the most common time sink (Vulkan for ManiSkill render; JAX↔CUDA matching for DreamerV3/MJX). Budget for it.

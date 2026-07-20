@@ -5,9 +5,8 @@
 > (dynamics) — into one system: a **persistent, semantically-grounded, predictive 4D scene**
 > you can both **query** and **roll forward**, with a reasoning layer on top.
 >
-> This is the **most ambitious and most on-thesis** project — it hits all three target clusters
-> at once (Reka/Odyssey *and* PerceptAI). It is a **capstone**: build #1 and #2 first as proven
-> standalone pieces, then fuse. Do NOT attempt the fusion cold.
+> This is the **most ambitious** project — it unifies what the other projects do separately. It is a **capstone**: build #1 and #2 first as proven
+> standalone artifacts, then fuse. Do NOT attempt the fusion cold.
 
 ## Why this is the unification
 
@@ -25,11 +24,11 @@ actions). A counterfactual spatial query — *"if the gripper pushes the cube le
 occluded / is the peg still reachable?"* — needs **both halves at once**, which is exactly what
 neither cluster's models do alone.
 
-## This is where the field (and the targets) are converging
+## This is where the field is converging
 
-- **Reka** JD: *"persistent 3D/4D scene representations that maintain temporal consistency"* — a
-  semantic spatial scene (PerceptAI's half) that **evolves** (the world-model half). The fusion is
-  literally their ask.
+- **Persistent 3D/4D scene representations that maintain temporal consistency** — a
+  semantic spatial scene (the spatial-semantic half) that **evolves** (the world-model half). The fusion
+  is the whole point.
 - **Cosmos3-Nano** (16B omnimodal WFM, ships `Cosmos3-Nano-Policy-DROID`) — NVIDIA unifying
   perception + generation + action in one model. Your capstone is the *small, honest* version of
   that same thesis; cite it as the frontier reference, not the deliverable.
@@ -71,10 +70,10 @@ The v0 above proves the thesis; these raise the ceiling to the *strongest demons
 
 **Stretch (frontier signal, once v1 lands):**
 - Add **NVIDIA Cosmos3-Nano** (16B omnimodal WFM, ships `Cosmos3-Nano-Policy-DROID`; Ampere/A100, ~32 GB inference, LoRA-tight) as a **frontier dynamics arm** — compare your compact world model vs Cosmos3-Nano (zero-shot DROID policy or LoRA-adapted) as the predictive layer. A **frontier-vs-reproducible-vs-classical** comparison on identical scenes is a rare, high-signal result. (Cosmos-Reason2 is the sibling spatial-VLM frontier reference for the grounding arm.)
-- An **interactive video demo**: type a query → render the predicted-future splat rolled forward → scene graph updates → answer overlaid. A 60-second clip in the README is portfolio gold for a hiring manager.
+- An **interactive video demo**: type a query → render the predicted-future splat rolled forward → scene graph updates → answer overlaid. A 60-second clip in the README is a compelling demo.
 
 **Why this is the strongest project she can do on one A100:**
-- Hits **all three target clusters' headline asks at once** (Reka persistent-4D + planning · Odyssey controllable predictable scene · PerceptAI semantic scene graph + the predictive dimension they lack).
+- Delivers **three headline capabilities at once**: persistent-4D + planning, a controllable predictable scene, and a semantic scene graph with a predictive dimension.
 - Combines **frontier models** (VGGT · Qwen3-VL · Cosmos3-Nano) **with rigor** (ablations, ground-truth eval, temporal consistency) — depth *and* frontier-readiness, the rare pair.
 - **Closed-loop embodied** — not a static demo; it perceives, predicts, reasons, and acts.
 - Reuses every asset she has (segmentation, 3DGS, world-model RL, TGAER) — almost nobody combines all four.
@@ -97,16 +96,8 @@ The v0 above proves the thesis; these raise the ceiling to the *strongest demons
 Build #1 (running) and #2 first — each is a credible standalone artifact. #3 (TGAER grounded in a
 world model) and the #3-spatial VLM layer are the reasoning components. **#4 fuses them.** Trying to
 fuse from day one is the trap; two solid halves + a focused bridge demo is the credible path, and
-the bridge is the pitch: *"I unified spatial understanding and dynamics into a queryable predictive
-scene."*
-
-## Maps to all three target clusters at once
-
-| Cluster | What the capstone shows them |
-|---|---|
-| **Reka** | persistent 3D/4D scene with temporal consistency + planning over it — their exact JD |
-| **Odyssey** | a controllable, predictable scene representation (the understanding side of interactive video WMs) |
-| **PerceptAI** | a semantic 3D scene graph + spatial reasoning — *plus* the predictive dimension they don't have |
+the bridge is the result: a unified spatial-understanding-and-dynamics queryable predictive
+scene.
 
 > Open-model choices for the spatial/VLM + dynamics components are grounded in
 > `project3-spatial-vlm-3d-scenegraph-SOTA.md` (complete: VGGT / ConceptGraphs / Qwen3-VL-8B,

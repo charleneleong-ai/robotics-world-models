@@ -1,14 +1,14 @@
 # Project #5 — Real-time Edge Vision-Inspection Foundation Model
 
-> **Portfolio spec.** Solo, single-A100 (+ CPU/edge-proxy). Target cluster: **industrial / applied-CV** — **Matta** (London, manufacturing foundation models) and **Timescapes** (NZ, construction-site CV). Through-line both want: **big-model intelligence squeezed onto constrained hardware, in real time, with little data.**
+> **Project spec.** Solo, single-A100 (+ CPU/edge-proxy). Domain: **industrial / applied-CV** — manufacturing defect detection and construction-site CV. The through-line: **big-model intelligence squeezed onto constrained hardware, in real time, with little data.**
 >
 > Research grounded against arXiv, GitHub, Hugging Face, and company sites on **2026-06-16**. Every repo/arxiv-ID/HF-ID/benchmark below was confirmed by direct fetch; values not anchored to a primary source are tagged **[UNVERIFIED]**. Licensing and hardware traps are flagged inline.
 
 ---
 
-## 1. The pitch in one paragraph
+## 1. The project in one paragraph
 
-Industrial visual inspection is the canonical "compress a foundation model onto factory hardware" problem: defects are rare, labels are scarce, the line runs in real time, and **there is no H100 in the factory** (Matta says this literally in their JD). The modern recipe is *unsupervised / few-shot* anomaly detection built on **self-supervised ViT patch features** (DINOv2/DINOv3), not supervised segmentation. This project takes a vision foundation model, **distills + quantizes it onto a constrained edge proxy**, runs **few-shot defect detection** on standard benchmarks (MVTec-AD / VisA), and reports an honest **accuracy ↔ latency ↔ compute Pareto curve** plus a **factory-to-factory few-shot transfer** result. It reuses the person's existing strengths (segmentation at scale, distillation, NF4 quantization, eval rigor, serving) and closes the named gaps (edge runtimes, QAT/pruning, anomaly-specific methods, hardware-aware latency).
+Industrial visual inspection is the canonical "compress a foundation model onto factory hardware" problem: defects are rare, labels are scarce, the line runs in real time, and **there is no H100 in the factory**. The modern recipe is *unsupervised / few-shot* anomaly detection built on **self-supervised ViT patch features** (DINOv2/DINOv3), not supervised segmentation. This project takes a vision foundation model, **distills + quantizes it onto a constrained edge proxy**, runs **few-shot defect detection** on standard benchmarks (MVTec-AD / VisA), and reports an honest **accuracy ↔ latency ↔ compute Pareto curve** plus a **factory-to-factory few-shot transfer** result. It reuses the person's existing strengths (segmentation at scale, distillation, NF4 quantization, eval rigor, serving) and closes the named gaps (edge runtimes, QAT/pruning, anomaly-specific methods, hardware-aware latency).
 
 ---
 
@@ -74,7 +74,7 @@ Industrial visual inspection is the canonical "compress a foundation model onto 
 | **VisA** | CC BY 4.0 | ✅ **YES** — commercial OK (attribution). Some mirrors mislabel it NC; official Amazon repo + AWS Open Data say CC BY 4.0. |
 | **M2AD** (2025) | Apache 2.0 | ✅ **YES** — fully permissive, not gated. |
 
-**Bottom line:** only **VisA** and **M2AD** are safe if the artifact must be redistributable/commercial. For a non-commercialized portfolio, all are usable with attribution. **Lead with VisA + MVTec-AD** (universal baselines), add **MVTec-LOCO** for logical anomalies and **M2AD/Real-IAD** for a "modern/hard" angle.
+**Bottom line:** only **VisA** and **M2AD** are safe if the artifact must be redistributable/commercial. For non-commercial/research use, all are usable with attribution. **Lead with VisA + MVTec-AD** (universal baselines), add **MVTec-LOCO** for logical anomalies and **M2AD/Real-IAD** for a "modern/hard" angle.
 
 ### 3.2 Benchmark table
 
@@ -178,7 +178,7 @@ Build a **3-tier accuracy-vs-latency-vs-compute curve, no factory or NPU require
 
 **Optional permanent upgrade:** [Jetson Orin Nano Super Dev Kit **$249**, 67 TOPS](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/nano-super-developer-kit/) — cheaper than many cloud bills, a permanent real-edge number, and aligns with the 2026 robotics/edge pivot.
 
-> **The exact framing to put in the spec / README:** *"I don't own edge hardware or a factory line. I report a hardware-agnostic curve (params / FLOPs / batch-1 throughput) plus a real measured curve on a constrained-CPU edge proxy via OpenVINO INT8 — the same anomalib→OpenVINO path a factory would deploy — anchored by one datapoint on a rented Jetson Orin / cloud T4. The A100 was used only for distillation and QAT, not as the latency target."* This is more credible than a fake Jetson claim and signals exactly the judgment the roles want.
+> **The exact framing to put in the spec / README:** *"I don't own edge hardware or a factory line. I report a hardware-agnostic curve (params / FLOPs / batch-1 throughput) plus a real measured curve on a constrained-CPU edge proxy via OpenVINO INT8 — the same anomalib→OpenVINO path a factory would deploy — anchored by one datapoint on a rented Jetson Orin / cloud T4. The A100 was used only for distillation and QAT, not as the latency target."* This is more credible than a fake Jetson claim.
 
 **Do NOT claim:** a true in-factory real-time deployment, custom NPU/MCU bring-up, or any "runs on the line at X FPS" number you can't measure.
 
@@ -194,9 +194,9 @@ Build a **3-tier accuracy-vs-latency-vs-compute curve, no factory or NPU require
 | **1 image** | **AnomalyDINO** ([2405.14529](https://arxiv.org/abs/2405.14529)) | **96.6% MVTec**, training-free DINOv2 patch NN |
 | **4 images** | **PromptAD** ([2404.05231](https://arxiv.org/abs/2404.05231)) | ~96.6% MVTec / ~89% VisA, strong pixel localization |
 
-- **Factory-to-factory transfer (the killer Matta/Timescapes demo):** **ResAD** ([2410.20047](https://arxiv.org/abs/2410.20047), NeurIPS 2024 spotlight) — class-generalizable, new classes/domains with **no retrain**; **InCTRLv2** ([2604.04632](https://arxiv.org/abs/2604.04632)) — generalist in-context.
+- **Factory-to-factory transfer (the killer generalization demo):** **ResAD** ([2410.20047](https://arxiv.org/abs/2410.20047), NeurIPS 2024 spotlight) — class-generalizable, new classes/domains with **no retrain**; **InCTRLv2** ([2604.04632](https://arxiv.org/abs/2604.04632)) — generalist in-context.
 - **Self-supervised angle:** DINOv2/v3 features are domain-general → why training-free patch-NN works without factory pretraining. **FoundAD** ([2510.01934](https://arxiv.org/abs/2510.01934)) validates **DINOv3** features for AD.
-- **Budget note:** VisA is ~8-10pp harder than MVTec (subtler defects) — say so in any factory pitch.
+- **Budget note:** VisA is ~8-10pp harder than MVTec (subtler defects) — worth stating explicitly.
 
 ---
 
@@ -263,7 +263,7 @@ Tiny student (TinyViT-5M)  ──ToMe──►  ──ViT-aware INT8 PTQ──�
 
 ### 9.4 What is NOT solo-feasible (be honest)
 
-- Owning/instrumenting a real factory line or capturing proprietary messy in-house data (Matta/Timescapes's actual moat). **Mitigate:** explicitly frame MVTec/VisA as proxies and lean on the *few-shot transfer* result as the "adapts to a new line with little data" evidence.
+- Owning/instrumenting a real factory line or capturing proprietary messy in-house data (the actual industrial moat). **Mitigate:** explicitly frame MVTec/VisA as proxies and lean on the *few-shot transfer* result as the "adapts to a new line with little data" evidence.
 - Custom NPU/MCU silicon bring-up, in-factory real-time FPS claims.
 - A genuinely novel anomaly-detection method (not the point — *deployment engineering + honest eval* is).
 
@@ -279,9 +279,9 @@ The deploy-and-measure loop from §9.2 is **working end-to-end**: anomalib model
 
 † EfficientAD at **80 epochs (~18k steps vs the recommended ~70k)** — accuracy is still a *lower bound* (literature ~95–98%) but the trend is clear. The 8.1 MB / 35 ms point is the edge headline: within ~6 pts of PatchCore's accuracy at **1/12th the disk and half the latency**.
 
-PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the Matta "low-compute factory" thesis rests on, measured not asserted.
+PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was 101.8 ms / 240 MB) at no measurable AUROC loss — the quantization win the "low-compute factory" thesis rests on, measured not asserted.
 
-**Pixel-level localization (where, not just whether).** With the ground-truth masks wired in, PatchCore on `cable` scores **pixel-AUROC 0.986** and **AUPRO 0.916** (image-AUROC 0.983 on this split) — it localizes the *defect region*, not just flags the image. That's the "not just what went wrong, but **why**" capability (Matta) + the dense whole-slide-segmentation muscle, producing operator-reviewable anomaly heatmaps. AUPRO (per-region overlap, the stricter localization metric) at 0.92 means the hot regions actually land on the real defects.
+**Pixel-level localization (where, not just whether).** With the ground-truth masks wired in, PatchCore on `cable` scores **pixel-AUROC 0.986** and **AUPRO 0.916** (image-AUROC 0.983 on this split) — it localizes the *defect region*, not just flags the image. That's the "not just what went wrong, but **why**" capability + the dense whole-slide-segmentation muscle, producing operator-reviewable anomaly heatmaps. AUPRO (per-region overlap, the stricter localization metric) at 0.92 means the hot regions actually land on the real defects.
 
 **Few-shot curves (the "new line, little data" result).** Image-AUROC on `cable` vs the number of normal training images, for two detectors — PatchCore (WideResNet-50 memory bank) and **AnomalyDINO** (training-free DINOv2-S/14 patch nearest-neighbour):
 
@@ -290,7 +290,7 @@ PatchCore INT8 vs FP32 (same model): **1.50× faster, 2.51× smaller** (FP32 was
 | **AnomalyDINO (DINOv2-S)** | **0.859** | 0.874 | 0.874 | 0.918 | — | — |
 | PatchCore (WideResNet-50) | 0.760 | 0.768 | 0.797 | 0.925 | 0.950 | 0.989 |
 
-**1-shot: DINOv2 patch features hit 0.859 vs PatchCore's 0.760 (+10 pts)** — foundation-model features dominate when data is scarcest (the "learn from *one* example" pitch); PatchCore only catches up by 8-shot and wins with full data. The k=8 knee plus the 1-shot gap are the Matta/Timescapes "learn from a handful of examples" evidence, measured. (AnomalyDINO here is a simplified patch-NN with the *smallest* DINOv2 backbone on one category — the full method / a larger backbone score higher; the **relative low-data win** is the result, not the absolute number.)
+**1-shot: DINOv2 patch features hit 0.859 vs PatchCore's 0.760 (+10 pts)** — foundation-model features dominate when data is scarcest (the "learn from *one* example" regime); PatchCore only catches up by 8-shot and wins with full data. The k=8 knee plus the 1-shot gap are the "learn from a handful of examples" evidence, measured. (AnomalyDINO here is a simplified patch-NN with the *smallest* DINOv2 backbone on one category — the full method / a larger backbone score higher; the **relative low-data win** is the result, not the absolute number.)
 
 **Cross-dataset generalization.** The same MVTec-recipe PatchCore (no re-tuning) applied to **VisA** — a held-out dataset, **CC BY 4.0 (commercial-safe)** unlike MVTec (research-only) — shows the pipeline isn't MVTec-overfit, across 4 categories:
 
@@ -305,47 +305,9 @@ Strong transfer on 3/4 (0.945–0.962); **capsules** drops to 0.700 — a known-
 
 ---
 
-## 10. JD mapping
+## 10. Construction-CV variant (dataset retargeting)
 
-### 10.1 Matta (London) — verified [matta.ai/job-vacancies](https://www.matta.ai/job-vacancies/ai-scientist)
-
-Manufacturing foundation models; cameras on production lines detecting defects/anomalies in real time. JD bullets below are **verbatim** from the live AI Scientist / MLE pages.
-
-| Matta JD bullet (quoted) | What this project demonstrates |
-|---|---|
-| *"all of this needs to work in real-time and run on low compute systems (because let's face it, factories aren't exactly decked out with H100 clusters)"* | **The entire thesis** — distill+quantize a VFM, OpenVINO-CPU edge proxy, latency Pareto. Direct hit. |
-| *"Boosting data efficiency... top-notch accuracy with minimal data"* / *"learn from a handful of examples"* | **Few-shot AD** (AnomalyDINO 1-shot, PromptAD 4-shot) + accuracy-vs-shots curve. |
-| *"transfer their smarts from one manufacturing setup to another"* | **Factory-to-factory few-shot transfer** (ResAD / held-out-category eval). |
-| *"the latest good stuff from transformers to VLMs and NeRFs"* | DINOv2/v3 ViTs + CLIP-based zero-shot (WinCLIP/AnomalyCLIP) + AnomalyVFM. |
-| *"classic signal processing... fourier, convolutions, cross-correlations, Bhattacharya distance"* | Reuse her CV/signal background; PatchCore/PaDiM are classic-feature methods — easy to add a Fourier/cross-correlation pre-filter ablation. |
-| *"horrible messy real-world datasets... custom dataloaders... no nice benchmarks"* | Her messy-data-pipeline strength; frame MVTec/VisA as proxies, build anomalib custom datamodules. |
-| *"models that understand causality – not just what went wrong, but why"* | Pixel-level localization + AUPRO + (stretch) an explainability head (IADGPT-style LVLM reasoning [2508.10681](https://arxiv.org/abs/2508.10681)). |
-| *"Proficiency in PyTorch... clean, scalable, high-performance deep learning code"* | PyTorch throughout; anomalib (Lightning); her serving (Triton/Ray) experience. |
-
-### 10.2 Timescapes (NZ) — verified [timescapes.co](https://www.timescapes.co)
-
-Continuous reality capture for construction; solar/4G site cameras → activity/asset analytics. JD bullets are **snippet-derived (ZipRecruiter 403, careers 404) — paraphrased, not confirmed verbatim**; company/product facts verified from the live site.
-
-| Timescapes signal | What this project demonstrates |
-|---|---|
-| Applied CV on messy real-world video; detect "concrete trucks, excavators, personnel" | Anomaly/object detection on real-world imagery; the **construction-dataset variant** (below) directly retargets the pipeline. |
-| **TensorRT** named (cameras are 4G/solar → optimized inference) | **TensorRT INT8 export + edge-latency engineering** — exact match. |
-| "ML lifecycle... data management, labeling, training, curating for quality" | Her eval-pipeline + messy-data-pipeline rigor; anomalib benchmarking harness. |
-| Edge/optimized inference on constrained devices | The whole compress-to-edge story transfers verbatim. |
-| PyTorch | PyTorch throughout. |
-
-**Timescapes flavor (verified datasets to retarget the pipeline):** swap MVTec for site video — **MOCS** (41,668 imgs, 174 sites, machinery masks; CC BY-NC) [official](http://www.anlab340.com/Archives/IndexArctype/index/t_id/17.html) · **Mendeley AI construction dataset** (87,766 imgs from 6 months of HD site video, **CC BY 4.0 commercial-OK**) [link](https://data.mendeley.com/datasets/rz8723t6d7/2) · **SODA** ([2202.09554](https://arxiv.org/abs/2202.09554)) · **UCF-Crime** for real-world *video* anomaly ([CRCV](https://www.crcv.ucf.edu/projects/real-world/)). A small "asset detection on real site video, deployed to edge" demo makes the spec dual-purpose for Timescapes.
-
-### 10.3 Composition with existing strengths & other portfolio projects
-
-| Asset | How it plugs in |
-|---|---|
-| **Production CV / segmentation at scale** (whole-slide medical imaging) | Dense pixel-level AD localization is the same muscle; SAM2/EdgeSAM ROI masking. |
-| **Model distillation** | Core of the VFM→tiny-student step. |
-| **NF4 quantization** (Project #1.5: 28B video model on 40 GB + attention hack) | The *quantization muscle* transfers; here it sharpens into ViT-aware INT8/QAT for edge. **Explicitly contrast: NF4=memory-on-GPU, this=latency-on-edge** — shows you know *why* the tool changes. |
-| **Eval-pipeline rigor** | The Pareto curve, CIs, FMA-convention honesty, edge-proxy framing. |
-| **Multimodal/CLIP** | WinCLIP/AnomalyCLIP zero-shot branch. |
-| **Serving (Triton/Ray)** | Productionizes the OpenVINO/TensorRT export; **double-counts for Runway's "production inference."** |
+**Verified datasets to retarget the pipeline to construction-site video** — swap MVTec for site video: **MOCS** (41,668 imgs, 174 sites, machinery masks; CC BY-NC) [official](http://www.anlab340.com/Archives/IndexArctype/index/t_id/17.html) · **Mendeley AI construction dataset** (87,766 imgs from 6 months of HD site video, **CC BY 4.0 commercial-OK**) [link](https://data.mendeley.com/datasets/rz8723t6d7/2) · **SODA** ([2202.09554](https://arxiv.org/abs/2202.09554)) · **UCF-Crime** for real-world *video* anomaly ([CRCV](https://www.crcv.ucf.edu/projects/real-world/)). A small "asset detection on real site video, deployed to edge" demo makes the pipeline dual-purpose (manufacturing defect detection + construction-site asset detection).
 
 ---
 
@@ -356,4 +318,3 @@ Continuous reality capture for construction; solar/4G site cameras → activity/
 - **Corrections folded in:** AdaCLIP is zero-shot (not few-shot); PatchCore uses WideResNet-50 (not DINOv2); Dinomaly 99.6% is full-training multi-class (not few-shot); no discrete "EfficientAD successor."
 - **Licensing traps:** MVTec-AD/LOCO/AD2 + Real-IAD are **research-only (non-commercial)**; only **VisA (CC BY 4.0)** and **M2AD (Apache 2.0)** are commercial-safe. DINOv3 gated license; MetaCLIP CC-BY-NC; MobileCLIP apple-amlr research-only — avoid for production backbones.
 - **Hardware traps:** A100 ≠ edge latency; naïve TensorRT INT8 can silently no-op on ViTs; NF4 gives no edge latency win. No physical Jetson/factory assumed — credibility comes from the OpenVINO-CPU proxy + one rented-accelerator datapoint, honestly framed.
-- **Timescapes JD:** paraphrased from search snippets (source pages blocked), not verbatim. Matta JD: verbatim from live pages.
