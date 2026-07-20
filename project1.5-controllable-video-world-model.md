@@ -1,17 +1,16 @@
 # Project #1.5 — Controllable Video World Model
 
 **Solo · single A100 80 GB · ~3–4 weeks**
-**Target role:** Runway — *Member of Technical Staff, Research Engineer* (world models). Double-counts for **Odyssey** (interactive video world models).
 
-> **Verification stance.** Every model ID, arXiv number, license, and VRAM figure below was live-verified by direct fetch on **2026-06-14** (GitHub / HuggingFace / arXiv). Figures I could not confirm from a primary source are marked **[inferred]** or **[unverified]**. The one-line rule: *don't pretrain a video world model (datacenter-only) — adapt, post-train, and evaluate one.* That is precisely the slice of Runway's full-stack research-engineering role this project demonstrates.
+> **Verification stance.** Every model ID, arXiv number, license, and VRAM figure below was live-verified by direct fetch on **2026-06-14** (GitHub / HuggingFace / arXiv). Figures I could not confirm from a primary source are marked **[inferred]** or **[unverified]**. The one-line rule: *don't pretrain a video world model (datacenter-only) — adapt, post-train, and evaluate one.*
 
 ---
 
-## 0. The gap this closes
+## 0. Scope
 
-The portfolio already covers post-training (RLVR), eval-driven development, data pipelines, distributed A100 training, and prototype→prod. The single missing axis for Runway/Odyssey is **large-scale controllable *video-generation* world models**. Runway is now explicitly a world-models company: it shipped **GWM-1** (General World Model, autoregressive, built on Gen-4.5, real-time interactive via *camera pose, events, robot pose, speech*), with post-trained **GWM Worlds / Avatars / Robotics** variants, and opened a London world-models HQ. ([GWM-1](https://runwayml.com/research/introducing-runway-gwm-1) · [General World Models](https://runwayml.com/research/introducing-general-world-models) · [London HQ](https://runwayml.com/news/runway-opens-london-hq))
+This project targets **large-scale controllable *video-generation* world models**. Runway is now explicitly a world-models company: it shipped **GWM-1** (General World Model, autoregressive, built on Gen-4.5, real-time interactive via *camera pose, events, robot pose, speech*), with post-trained **GWM Worlds / Avatars / Robotics** variants, and opened a London world-models HQ. ([GWM-1](https://runwayml.com/research/introducing-runway-gwm-1) · [General World Models](https://runwayml.com/research/introducing-general-world-models) · [London HQ](https://runwayml.com/news/runway-opens-london-hq))
 
-This project = **take an open, action-conditioned video world model and teach it a *new* behavior** (a robot-manipulation action space it has never seen), with a real **post-training method** and a **purpose-built eval harness** — the exact loop in Runway's "Datasets" JD.
+This project = **take an open, action-conditioned video world model and teach it a *new* behavior** (a robot-manipulation action space it has never seen), with a real **post-training method** and a **purpose-built eval harness**.
 
 ---
 
@@ -66,7 +65,7 @@ All verified 2026-06-14. "Control OOTB" = controllability available out of the b
 | Wan2.2-A14B (MoE) | 27B/14B active | Apache-2.0 | I2V + VACE-Fun camera/pose | LoRA tight ~75 GB; full FT multi-GPU | Medium | The base under LingBot; richer control but tight |
 | CogVideoX-2B / 5B | 2B / 5B | 2B Apache-2.0; 5B custom | I2V; Fun pose/depth/canny/camera (separate) | ✅ 2B LoRA ~47 GB; 5B ~63 GB | Low–Med | Easy but no native action |
 | LTX-Video (2B/13B) | 2B / 13B | LTXV Open Weights (free <$10M ARR) | I2V + **Depth/Pose/Canny IC-LoRAs**; real-time | ✅ official LTX-Video-Trainer | Low–Med | Best *generic* solo-FT control story; no robot-action |
-| HunyuanVideo | 13B+ | Tencent — **excludes EU/UK/SK** ⚠️ | I2V only | LoRA via musubi (24 GB+); full FT multi-GPU | Low | **Avoid** (geo-license risk for UK/EU employers) |
+| HunyuanVideo | 13B+ | Tencent — **excludes EU/UK/SK** ⚠️ | I2V only | LoRA via musubi (24 GB+); full FT multi-GPU | Low | **Avoid** (geo-license risk for UK/EU distribution) |
 | Mochi-1 | 10B | Apache-2.0 | **T2V only — none** | ✅ LoRA "exactly one A100 80 GB" (tight) | Low | No control axis |
 | Open-Sora 2.0 / 1.2 | 11B / 1.1B | Apache-2.0 | I2V + motion-score | 1.2 ✅; 2.0 borderline | Low | 1.1B is solo-FT-able but no diffusers / no action |
 
@@ -76,11 +75,11 @@ All verified 2026-06-14. "Control OOTB" = controllability available out of the b
 
 ---
 
-## 3. The build (Runway-shaped)
+## 3. The build
 
 **Thesis:** *Teach LingBot-World a new behavior — a robot-manipulation action space — by post-training its action adapter, then prove with eval that the generated video actually obeys the action.*
 
-### 3.1 Data pipeline (the candidate's strength)
+### 3.1 Data pipeline
 
 Two sources, picked for single-GPU feasibility:
 
@@ -91,18 +90,18 @@ Pipeline sketch (Hydra-configured, the standard project layout):
 1. **Rollout/ingest** → ManiSkill scripted policies (or DROID RLDS shards).
 2. **Action encoding** → map continuous EE/joint deltas → Plücker embeddings (camera-frame motion) + discretize gripper/mode → multi-hot tokens matching LingBot's adapter input.
 3. **Caption/condition** → static-scene + dense-temporal captions (LingBot's data engine separates layout from motion); auto-caption with a VLM.
-4. **Filter/QC** → drop failed episodes, dedup, balance action distribution (Runway JD: "filtering and quality control").
+4. **Filter/QC** → drop failed episodes, dedup, balance action distribution.
 5. **Pack** → 480p clips of 49–81 frames, WebDataset shards.
 
 ### 3.2 Post-training method
 
 **Primary (verified-cheap): freeze-backbone adapter fine-tune.** Reproduce LingBot's own recipe — freeze the 14B-active DiT, train only the action-embedding projections + AdaLN params on the new ManiSkill action space. Backbone held in 4-bit/bf16 + gradient checkpointing + DiT/T5 offload. This is the minimal viable "teach a new behavior" result.
 
-**Stretch (the Runway differentiator — RL/DPO post-training):** once an eval reward exists (§4), add **RL-from-eval-reward** or **DPO-style** preference post-training on the adapter: sample pairs of rollouts under the *same* action, score with the action-following metric (§4.2), and prefer the higher-fidelity one. This directly hits the JD's "SFT/RL post-training" bullet and reuses the candidate's RLVR background. Keep it adapter-scoped to stay in budget.
+**Stretch (RL/DPO post-training):** once an eval reward exists (§4), add **RL-from-eval-reward** or **DPO-style** preference post-training on the adapter: sample pairs of rollouts under the *same* action, score with the action-following metric (§4.2), and prefer the higher-fidelity one. This reuses the RLVR background. Keep it adapter-scoped to stay in budget.
 
 ---
 
-## 4. Eval design (core strength + explicit Runway bullet)
+## 4. Eval design
 
 A small custom harness (`evals/`) wrapping real, named metrics across four axes + one holistic leaderboard. The discriminating axis most repos skip is **action-following** — lead with it.
 
@@ -144,23 +143,10 @@ A small custom harness (`evals/`) wrapping real, named metrics across four axes 
 
 ---
 
-## 6. JD mapping + portfolio composition
+## 6. Relation to the other projects
 
-### Runway JD → demonstrated
-
-| Runway bullet | What #1.5 demonstrates |
-|---|---|
-| "Teach world models new behaviors — action following, scene manipulation, camera control" | Post-train LingBot's action adapter on a *new* ManiSkill/DROID action space; camera axis via Plücker/pose conditioning |
-| "SFT / RL post-training" | Freeze-backbone adapter SFT (primary) + RL/DPO-from-eval-reward (stretch) — reuses RLVR background |
-| "Design evaluations that measure model capabilities" | Custom harness: Δt PSNR + IDM action-error + RotErr/TransErr + cd-fvd/FVMD + VideoPhy/WorldScore |
-| "Robust data pipelines (synthetic gen, filtering, QC)" | ManiSkill synthetic-rollout pipeline + DROID ingest, action-encoding, captioning, QC, WebDataset packing |
-| "Prototype → production" | Standard sweep-orchestration layout (Hydra configs, `results.jsonl`, W&B tracking, detached daemons) |
-| "Multimodal generative models (video/image)" | Video diffusion world model end-to-end |
-
-### Composition with the rest of the portfolio
-- **Project #1 (compact world model + classical crossover):** #1.5 is the *generative-video* counterpart — #1 argues compact/efficient WMs, #1.5 shows fluency with the large-scale video-diffusion stack the field actually ships. Together: "I understand WMs from compact-latent to full-video."
+- **Project #1 (compact world model + classical crossover):** #1.5 is the *generative-video* counterpart — #1 argues compact/efficient WMs, #1.5 exercises the large-scale video-diffusion stack the field actually ships. Together they span WMs from compact-latent to full-video.
 - **Project #4 (semantic-predictive 4D fusion / simulation):** #1.5's action-conditioned rollouts + ViPE pose/depth feed directly into #4's 4D fusion story; shared eval primitives (ViPE, FVMD).
-- **Odyssey double-count:** Odyssey builds interactive video world models (next-frame from scene-state + user input, ~40 ms, browser-served). LingBot's **Fast** variant (KV-cache + DMD distillation, 16 fps, <1 s latency) is the same interactive-streaming regime — #1.5 demonstrates exactly Odyssey's tech direction with no extra work.
 
 ---
 
@@ -169,5 +155,5 @@ A small custom harness (`evals/`) wrapping real, named metrics across four axes 
 - **VRAM trap:** unquantized LingBot ≈ 85 GB → no single-A100 unquantized inference without offload; NF4 (32 GB) is inference-only. Adapter-tune feasibility on 80 GB is **[inferred]**, gated by Milestone 0.
 - **No official LingBot fine-tune/LoRA script** is published — only the report's description of freeze-backbone adapter training. Expect to write the training loop.
 - **Cosmos license:** OpenMDW-1.1 is permissive (commercial OK) but the exact acceptable-use clause text was **[unverified]** — confirm before any commercial claim. Cosmos3-Nano fine-tune VRAM is **unpublished**.
-- **HunyuanVideo geo-license** excludes EU/UK/SK — avoid given UK/EU target employers.
+- **HunyuanVideo geo-license** excludes EU/UK/SK — avoid for any UK/EU-distributable artifact.
 - A few 2026 eval-benchmark arXiv IDs sit at the edge of the knowledge window — re-fetch before citing specific *numbers* from them; the metric *taxonomy* (Δt PSNR, RotErr/TransErr, cd-fvd, FVMD, ViPE) is solid.

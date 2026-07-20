@@ -1,10 +1,10 @@
 # Spatial VLMs + 3D Scene Graphs + Spatial Reasoning — SOTA (June 2026)
 
-> Portfolio research brief for a **"Foundation Model for Physical AI / Spatial Intelligence"** VLM research-engineer role (PerceptAI-style: VLMs grounding language in 3D scene graphs / Gaussian-splat scenes, open-vocab spatial queries, agentic spatial reasoning, digital twins).
+> Research brief on **Foundation Models for Physical AI / Spatial Intelligence**: VLMs grounding language in 3D scene graphs / Gaussian-splat scenes, open-vocab spatial queries, agentic spatial reasoning, digital twins.
 >
 > **Verification:** all model names, repos, arXiv IDs, HF IDs, licenses, and maintenance status below were checked **live against arxiv.org / github.com / huggingface.co during June 2026**. Items I could not fully verify are flagged inline and collected in [§9](#9-honesty--what-i-could-not-fully-verify). Single-A100 VRAM figures are **inferred from param count + published recipes** unless a repo states an explicit number (the few that do are noted).
 >
-> **Candidate fit (context for the recommendations):** strong in production CV (panoptic/semantic **segmentation** at scale), CLIP/multimodal embeddings, distributed A100 training, eval-pipeline rigor, an agentic-LLM reasoning framework (TGAER, DSPy). Adjacency: a planned **semantic 3D/4D Gaussian Splatting** project (SAM2 masks lifted into 3DGS). Honest gaps: web-scale VLM **pretraining** (Megatron/DeepSpeed multi-node, LLaVA/Qwen-VL scale), publications.
+> **Relevant background (context for the recommendations):** strong in production CV (panoptic/semantic **segmentation** at scale), CLIP/multimodal embeddings, distributed A100 training, eval-pipeline rigor, an agentic-LLM reasoning framework (TGAER, DSPy). Adjacency: a planned **semantic 3D/4D Gaussian Splatting** project (SAM2 masks lifted into 3DGS). Honest gaps: web-scale VLM **pretraining** (Megatron/DeepSpeed multi-node, LLaVA/Qwen-VL scale).
 
 ---
 
@@ -13,7 +13,7 @@
 - **Best starting spatial VLM (1×A100 80GB, LoRA):** **Qwen3-VL-8B-Instruct** — Apache-2.0, *verified live*, has **native 3D bounding-box grounding** built in. Robotics-flavored alternatives: **RoboBrain 2.5** (Apache-2.0, on Qwen3-VL) or **NVIDIA Cosmos-Reason2** (commercial-friendly).
 - **Best 3D scene-graph repo to build on:** **ConceptGraphs** (MIT, inference-only, posed RGB-D, single-GPU, largest community). Robotics slant → MIT-SPARK **Khronos**+**Clio**; LLM-reasoning slant → **3DGraphLLM**.
 - **Best language-grounded-splat / open-vocab-3D-seg to pair (segmentation edge):** **LangSplat** (only language-splat with an explicit 24 GB spec; canonical baseline). Faster: **OccamLGS**; permissive license: **SAGA**.
-- **3D-into-VLM approach the JD wants:** the 2025-26 frontier feeds **RGB video into a feed-forward geometry encoder** (VGGT / DUSt3R-family) fused with a 2D encoder — **Spatial-MLLM, VLM-3R, VG-LLM, Ross3D**. Splat-token VLMs (**SplatTalk, GaussianVLM**) are the youngest, most "3D-native" frontier.
+- **3D-into-VLM approach (the current frontier):** the 2025-26 frontier feeds **RGB video into a feed-forward geometry encoder** (VGGT / DUSt3R-family) fused with a 2D encoder — **Spatial-MLLM, VLM-3R, VG-LLM, Ross3D**. Splat-token VLMs (**SplatTalk, GaussianVLM**) are the youngest, most "3D-native" frontier.
 - **Recon front-end:** **VGGT** (CVPR 2025 Best Paper; now has a **commercial** checkpoint too) for quality; **MoGe-2 / MapAnything-apache** for permissive-license single-GPU work.
 - **Training-infra honesty:** LoRA/QLoRA VLM finetune + DeepSpeed ZeRO-Offload / FSDP2-offload are **genuinely solo-demonstrable**. Real FSDP/ZeRO **sharding** needs ≥2 GPUs. **Megatron multi-node** is *not* honestly demonstrable solo — claim conceptual understanding only.
 
@@ -61,7 +61,7 @@ What does spatial reasoning / grounding, open weights, size, license, hardware. 
 
 ## 2. Open-Vocabulary 3D Scene Graphs
 
-> License caveat: several strong-on-paper repos (**BBQ, OpenGraph, DovSG**) ship with **no LICENSE file** → legally all-rights-reserved, unsafe for a public portfolio. **Open3DSG** is **AGPL-3.0 + archived**. Last-activity is GitHub `pushed_at` at time of research; it will drift.
+> License caveat: several strong-on-paper repos (**BBQ, OpenGraph, DovSG**) ship with **no LICENSE file** → legally all-rights-reserved, not redistributable. **Open3DSG** is **AGPL-3.0 + archived**. Last-activity is GitHub `pushed_at` at time of research; it will drift.
 
 | Method | Inputs | Repo | arXiv | License | Last activity | Solo-reproducible |
 |---|---|---|---|---|---|---|
@@ -78,13 +78,13 @@ What does spatial reasoning / grounding, open weights, size, license, hardware. 
 
 **2025-26 leads (paper-only / not deep-verified):** **OpenFunGraph** ([2503.19199](https://arxiv.org/abs/2503.19199), CVPR'25, **no code found**), functional/affordance scene graphs (**FunGraph** [2503.07909](https://arxiv.org/abs/2503.07909)).
 
-**Verdict:** **ConceptGraphs** is the best solo base — inference-only (no 3D training, no labeled SG data), ordinary posed RGB-D, single GPU, **MIT** (safe to fork/showcase), largest community. Robotics slant → **Khronos**+**Clio** (BSD, MIT-SPARK, most-maintained). LLM-reasoning slant → **3DGraphLLM** (freshest learnable-graph-into-LLM). Avoid BBQ/OpenGraph/DovSG (no license) and Open3DSG (AGPL + archived) for a public portfolio.
+**Verdict:** **ConceptGraphs** is the best solo base — inference-only (no 3D training, no labeled SG data), ordinary posed RGB-D, single GPU, **MIT** (safe to fork), largest community. Robotics slant → **Khronos**+**Clio** (BSD, MIT-SPARK, most-maintained). LLM-reasoning slant → **3DGraphLLM** (freshest learnable-graph-into-LLM). Avoid BBQ/OpenGraph/DovSG (no license) and Open3DSG (AGPL + archived) if the work must be redistributable.
 
 ---
 
 ## 3. Open-Vocab 3D Segmentation / Grounding (her segmentation edge → 3D)
 
-> Most 3DGS-derived repos carry the **Gaussian-Splatting License** (Inria + Max Planck, **non-commercial**, shows as `NOASSERTION` on GitHub). Fine for a research portfolio, not for product.
+> Most 3DGS-derived repos carry the **Gaussian-Splatting License** (Inria + Max Planck, **non-commercial**, shows as `NOASSERTION` on GitHub). Fine for research use, not for product.
 
 | Method | Repo | arXiv | License | Last activity | 1×A100 / consumer |
 |---|---|---|---|---|---|
@@ -105,11 +105,11 @@ What does spatial reasoning / grounding, open weights, size, license, hardware. 
 
 **SAM2-into-3D landscape:** **SAM2Point** (voxelize → multi-directional "videos" → SAM2 video seg, training-free, most faithful); **Gaussian Grouping** + **SAGA** lift SAM masks into per-Gaussian identity features (SAGA cleanest hardware story + Apache); text-grounded successors **OccamLGS / Dr. Splat / OpenSplat3D / Chorus** all benchmark vs LangSplat.
 
-**Verdict:** **LangSplat** to pair with the scene graph — genuinely open-vocab (CLIP+SAM), the **only** language-splat with an explicit modest spec (24 GB), canonical baseline. Faster/2026-fresh → **OccamLGS** (training-free, ~100×). Permissive license + interactive → **SAGA** (Apache, RTX 3090). For the **SAM2-lifted-into-3DGS** project the candidate already plans, **SAGA / Gaussian Grouping / SAM2Point** are the direct lineage.
+**Verdict:** **LangSplat** to pair with the scene graph — genuinely open-vocab (CLIP+SAM), the **only** language-splat with an explicit modest spec (24 GB), canonical baseline. Faster/2026-fresh → **OccamLGS** (training-free, ~100×). Permissive license + interactive → **SAGA** (Apache, RTX 3090). For the **SAM2-lifted-into-3DGS** project already planned, **SAGA / Gaussian Grouping / SAM2Point** are the direct lineage.
 
 ---
 
-## 4. 3D-into-VLM Integration (the JD's headline)
+## 4. 3D-into-VLM Integration
 
 Five mechanism families. **2025-26 trend: away from explicit 3D inputs → toward RGB-video with geometry recovered internally by a VGGT/DUSt3R-style encoder.**
 
@@ -176,7 +176,7 @@ Five mechanism families. **2025-26 trend: away from explicit 3D inputs → towar
 
 **Categories:** genuinely-3D-input (ScanQA, SQA3D, OpenEQA, SpatialRGPT-Bench, SpatialBench); 3D-reasoning-from-2D (3DSRBench, BLINK, OmniSpatial, ViewSpatial, Spatial457); video/multi-view (VSI-Bench, STI-Bench, SPAR, All-Angles, MMSI).
 
-**What a credible portfolio result reports (honest framing — "reproduce + ablate, don't claim SOTA"):**
+**What a credible result reports (honest framing — "reproduce + ablate, don't claim SOTA"):**
 - **ScanQA:** EM@1 ~22–26, CIDEr ~85–95 (LEO / Chat-Scene class) — above baseline, not SOTA.
 - **SQA3D:** ~50–54% overall **with per-question-type breakdown**.
 - **OpenEQA:** run a strong VLM through the official harness; report LLM-Match in the ~40s–50s. It's an eval harness, not a training target.
@@ -187,7 +187,7 @@ Five mechanism families. **2025-26 trend: away from explicit 3D inputs → towar
 
 ## 6. Training Infrastructure — Honest Solo-vs-Lab Reality
 
-The JD names **Megatron-LM, DeepSpeed, FSDP**. What that means on **one A100 80GB**:
+The commonly-named infra stack — **Megatron-LM, DeepSpeed, FSDP** — on **one A100 80GB**:
 
 | Stack | Repo | Solo-on-1-A100 reality |
 |---|---|---|
@@ -205,11 +205,11 @@ The JD names **Megatron-LM, DeepSpeed, FSDP**. What that means on **one A100 80G
 | **Axolotl** | [axolotl-ai-cloud/axolotl](https://github.com/axolotl-ai-cloud/axolotl) | YAML-driven; QLoRA Qwen2-VL-7B ≈ 38 GB (blog ⚠) |
 | **TRL + PEFT** | [huggingface/trl](https://github.com/huggingface/trl) | Most transparent; wraps `transformers.Trainer` |
 
-**Claim honestly:**
-- ✅ "Fine-tuned Qwen3-VL with QLoRA on a single A100" — **hands-on, true, centerpiece.**
-- ✅ "Used DeepSpeed ZeRO-Offload / FSDP2 offload + activation checkpointing to train beyond single-GPU memory" — **true & demonstrable solo.**
-- ⚠ "Demonstrated FSDP/ZeRO **sharding** on a 2–8 GPU node" — **true only if you rent the node** (cheap, high-leverage; converts "read about" → "ran it").
-- ⛔ "Trained with Megatron at scale" — **don't.** Overclaiming Megatron is the easiest interview trap. Ceiling: "familiar with Megatron-Core TP/PP/CP for multi-node VLM pretraining; understand trade-offs."
+**Feasibility, honestly:**
+- ✅ Fine-tuning Qwen3-VL with QLoRA on a single A100 — **genuinely demonstrable; the core result.**
+- ✅ DeepSpeed ZeRO-Offload / FSDP2 offload + activation checkpointing to train beyond single-GPU memory — **demonstrable solo.**
+- ⚠ FSDP/ZeRO **sharding** on a 2–8 GPU node — **only if you rent the node** (cheap, high-leverage; converts "read about" → "ran it").
+- ⛔ Megatron at scale — **not solo-feasible; don't overclaim it.** Ceiling: conceptual familiarity with Megatron-Core TP/PP/CP for multi-node VLM pretraining and its trade-offs.
 
 ---
 
@@ -226,15 +226,15 @@ The JD names **Megatron-LM, DeepSpeed, FSDP**. What that means on **one A100 80G
 9. **VSI-Bench / "Thinking in Space"** ([2412.14171](https://arxiv.org/abs/2412.14171), 2024) — the headline video spatial-intelligence benchmark; MRA metric.
 10. **OpenEQA** (Meta, CVPR'24, [site](https://open-eqa.github.io/)) — embodied-QA eval harness; the credibility benchmark for a scene-understanding demo.
 11. **HOV-SG** ([2403.17846](https://arxiv.org/abs/2403.17846), 2024) — hierarchical (floor→room→object) open-vocab scene graphs; MIT.
-12. **RoboBrain 2.0** ([2507.02029](https://arxiv.org/abs/2507.02029), 2025) — unified embodied perception+reasoning+planning brain; the "Physical AI" archetype the JD describes.
+12. **RoboBrain 2.0** ([2507.02029](https://arxiv.org/abs/2507.02029), 2025) — unified embodied perception+reasoning+planning brain; the "Physical AI" archetype.
 
 ---
 
-## 8. Concrete Solo-Feasible Portfolio Project
+## 8. Concrete Solo-Feasible Project
 
 **Title:** *"Open-vocab 3D scene graph + spatial-QA from a phone video, on one A100."*
 
-**Thesis:** reconstruct a real scene from a casual video, lift SAM2 masks into a language-grounded 3D representation, build an open-vocab 3D scene graph, and answer open-vocab spatial queries with a 3D-aware VLM — wrapped in a rigorous eval harness. This bridges the candidate's **segmentation + planned 3DGS** strengths directly into the JD's "VLMs grounding language in 3D scene graphs / splat scenes + open-vocab spatial queries + agentic reasoning" headline.
+**Thesis:** reconstruct a real scene from a casual video, lift SAM2 masks into a language-grounded 3D representation, build an open-vocab 3D scene graph, and answer open-vocab spatial queries with a 3D-aware VLM — wrapped in a rigorous eval harness. This bridges the **segmentation + planned 3DGS** strengths directly into VLMs that ground language in 3D scene graphs / splat scenes, answer open-vocab spatial queries, and do agentic reasoning.
 
 **Pipeline (all single-A100, all permissive-or-research-OK):**
 
@@ -251,27 +251,16 @@ phone video
 - One ScanNet/Replica scene (skip live capture). **VGGT → ConceptGraphs (MIT, out-of-box) → Qwen3-VL-8B zero-shot** answering 10–20 hand-written spatial queries ("what's left of the sofa?", "how far is the fridge from the table?"). No training. Deliverable: a notebook + short video + a small eval table on SQA3D / a ConceptGraphs query set.
 
 **v1 (the differentiator, +2–4 weeks):**
-- Add the **SAM2 → SAGA language-splat** branch (the candidate's 3DGS adjacency). LoRA-finetune **Qwen3-VL-8B** (QLoRA, Unsloth/LLaMA-Factory) on SpatialVLM-style synthetic QA generated from the scene graph (VQASynth-style). Report ScanQA EM@1/CIDEr, SQA3D per-type, **OpenEQA LLM-Match**, and a **RGB-only vs RGB+3D-graph ablation** — the single most credible result.
+- Add the **SAM2 → SAGA language-splat** branch (the planned 3DGS adjacency). LoRA-finetune **Qwen3-VL-8B** (QLoRA, Unsloth/LLaMA-Factory) on SpatialVLM-style synthetic QA generated from the scene graph (VQASynth-style). Report ScanQA EM@1/CIDEr, SQA3D per-type, **OpenEQA LLM-Match**, and a **RGB-only vs RGB+3D-graph ablation** — the single most credible result.
 
 **Rough compute:** v0 = a few A100-hours (inference + recon). v1 LoRA on Qwen3-VL-8B = ~1–3 A100-days for a few epochs of synthetic QA + eval sweeps. Total well within a single 80 GB card.
 
-**"Infra credibility" add-on (cheap, high-leverage):** run the LoRA finetune through **DeepSpeed ZeRO-Offload** and **FSDP2** once, and rent a **2×A100 node for one day** to show **real FSDP sharding** — converts the JD's infra keywords from "read" to "ran".
+**"Infra credibility" add-on (cheap, high-leverage):** run the LoRA finetune through **DeepSpeed ZeRO-Offload** and **FSDP2** once, and rent a **2×A100 node for one day** to show **real FSDP sharding** — converts the infra keywords from "read" to "ran".
 
 **Explicitly NOT solo-feasible (be upfront):**
 - Web-scale **VLM pretraining** (LLaVA/Qwen-VL/Molmo scale) — datacenter-only.
 - **Megatron multi-node 3D-parallel** training — lab-scale; claim conceptual only.
 - Beating frontier closed models (Gemini Robotics-ER, GPT-5) on hard spatial benches — the honest goal is *reproduce + ablate + clean eval*, not SOTA.
-
-### Mapping to the PerceptAI-style JD
-
-| JD theme | This project demonstrates it via |
-|---|---|
-| VLMs grounding language in **3D scene graphs** | ConceptGraphs / 3DGraphLLM + Qwen3-VL |
-| **Gaussian-splat scenes** | SAM2 → SAGA / Gaussian Grouping language-splat (her 3DGS adjacency) |
-| **Open-vocab spatial queries** | CLIP/SAM2 open-vocab + Qwen3-VL 3D grounding (her CLIP/segmentation edge) |
-| **Agentic spatial reasoning** | DSPy/TGAER agent loop over the scene-graph query interface (her existing framework) |
-| **Digital twins** | the posed point cloud + language-splat + scene graph *is* a queryable twin |
-| **VLM training at scale** (gap) | honest LoRA/QLoRA + DeepSpeed-Offload/FSDP2 demo; conceptual Megatron |
 
 ---
 
@@ -280,7 +269,7 @@ phone video
 - **Single-A100 LoRA VRAM numbers are inferred** from param count + recipes for nearly every VLM; explicit per-GPU figures are rare. Explicit VRAM was found only for: LangSplat (24 GB), SAGA (RTX 3090 24 GB), OpenScene (1×A100 40 GB train), Chorus (22–48 GiB), BBQ (10/16 GB), Fast3R (1500 imgs/78.6 GB A100), MoGe-2 (RTX 3090-class).
 - **RoboBrain 2.5 arXiv ID (2601.14352)** and exact dense Qwen3-VL per-model release dates were not individually pinned (Sept–Oct 2025 rollout window + flagship 2025-09-23 confirmed; 235B confirmed).
 - **License conflicts (treat as research-only until you check upstream):** LLaVA-3D (HF Apache vs GitHub CC-BY-NC-SA), VLM-3R & SpatialLM (Apache code but NC dependency/encoder), Pi3 (repo NC vs HF BSD), VG-LLM / 3D-LLaVA (no LICENSE file → all-rights-reserved by default).
-- **No-license repos** (legally not reusable for a public portfolio): BBQ, OpenGraph, DovSG.
+- **No-license repos** (legally not redistributable): BBQ, OpenGraph, DovSG.
 - **MolmoAct weights are FP32** → ~2× memory vs bf16; factor into single-GPU planning.
 - **VGGT licensing was updated during this research:** beyond the NC original, a gated **`VGGT-1B-Commercial`** checkpoint now exists (commercial OK, no military) — verified live on the repo README.
 - **Last-activity / star counts** are point-in-time GitHub `pushed_at` snapshots and will drift.
