@@ -27,8 +27,8 @@ Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 +
 
 | Path | What |
 |---|---|
-| `project1-world-models-manipulation-SOTA.md` | SOTA survey: sims, methods, repos, benchmarks (verified 2026-06) |
-| `project2-3d4d-scene-representation-SOTA.md` | SOTA survey for the 3D/4D Gaussian-splatting project |
+| `docs/experiments/plugchargerdense.md` | the paradigm study writeup (classical / imitation / RL / generative-WM) |
+| `docs/specs/*.md` | experiment specs |
 | `configs/schedules/*.yaml` | sweep recipes |
 | `experiments/autoresearch.py` | **SweepRunner driver** — schedule-driven, GPU-gated, resumable, hang-triaged |
 | `experiments/<tag>/<config>/results.jsonl` · `progress.png` | per-config results + chart |
