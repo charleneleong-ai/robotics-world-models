@@ -1,7 +1,6 @@
 # Semantic 3D/4D Scene Reconstruction — SOTA Research (mid-2026)
 
 > **Project:** Semantic 3D/4D scene reconstruction with 3D Gaussian Splatting — reuse production segmentation expertise to lift 2D semantics into a 3D Gaussian field, with a rigorous eval harness; extend to dynamic (4D) scenes for temporal consistency.
-> **Target role:** World Models / 3D-4D generative / embodied AI (robotics + world-models lab, Reka).
 > **Author background:** Production panoptic/semantic segmentation at scale (medical WSI, 100+ classes), distributed A100 training, CLIP/multimodal embeddings, eval-pipeline rigor. *No prior neural rendering.*
 > **Research date:** 2026-06-12. All repo names, paper titles, arxiv IDs, and maintenance status cross-checked against the live web (not training data alone).
 
@@ -12,7 +11,7 @@
 | Decision | Recommendation | Why |
 |---|---|---|
 | **Representation** | **3D Gaussian Splatting (3DGS)** as the substrate; add **Mip-Splatting** for anti-aliasing, **2DGS** only if you need mesh/geometry | Field has decisively landed on 3DGS for static scenes: real-time render, minutes-to-train, explicit/editable. Every semantic + 4D method builds on it. |
-| **Framework / repo** | **Nerfstudio** to start (one-command `ns-train`, web viewer, NeRF+3DGS), drop to **gsplat** when you write your own loop | Both Apache-2.0 (portfolio-safe), actively maintained, gsplat is the de-facto CUDA backend. Avoid INRIA repo as a *start* (non-commercial license + conda/CUDA fragility). |
+| **Framework / repo** | **Nerfstudio** to start (one-command `ns-train`, web viewer, NeRF+3DGS), drop to **gsplat** when you write your own loop | Both Apache-2.0 (permissively licensed, safe to fork), actively maintained, gsplat is the de-facto CUDA backend. Avoid INRIA repo as a *start* (non-commercial license + conda/CUDA fragility). |
 | **Semantic method** | **OpenSplat3D** (cleanest maintained repo, purpose-built SAM→3DGS instance lifting), with **SAGA** / **LangSplat** as battle-tested fallbacks | OpenSplat3D is genuinely 2025-current, 0 open issues, `just setup`, ScanNet++/LERF eval built in. SAM2 is the converged 2D backbone. |
 | **4D / dynamic** | **Shape-of-Motion** (monocular, maintained, explicit motion trajectories) for the headline; **4DGS/Deformable-3DGS on D-NeRF synthetic** to prototype | Monocular = phone video, no multi-cam rig. Persistent 3D trajectories are the visual "temporal consistency" story. Cite MonoDyGauBench as honesty check. |
 | **First milestone** | **gsplat/Splatfacto reconstruction of one Mip-NeRF360 scene → SAM2 masks lifted via a Gaussian feature/identity field → mIoU + PSNR/SSIM/LPIPS eval harness** | Smallest end-to-end slice that proves the differentiator (2D-seg → 3D lift) with credible numbers. ~1 GPU-week. |
@@ -59,7 +58,7 @@ For **static scenes**, the field has decisively landed on **3D Gaussian Splattin
 
 | Repo | Stars | Last activity | License | Framework | GPU / install | Verdict |
 |------|-------|---------------|---------|-----------|---------------|---------|
-| **Nerfstudio** | ~11.7k | Active (commits into 2025) | Apache-2.0 | Python / PyTorch | NVIDIA GPU, CUDA 11.7/11.8; `pip install nerfstudio` | **BEST starting point.** End-to-end NeRF + 3DGS, one-command train, live viewer, portfolio-safe. |
+| **Nerfstudio** | ~11.7k | Active (commits into 2025) | Apache-2.0 | Python / PyTorch | NVIDIA GPU, CUDA 11.7/11.8; `pip install nerfstudio` | **BEST starting point.** End-to-end NeRF + 3DGS, one-command train, live viewer, safe to fork. |
 | **gsplat** | ~5.2k | **Very active** (commits Jun 2026; v1.5.3 Jul 2025) | Apache-2.0 | Python + CUDA/C++ | NVIDIA GPU; ~4× less VRAM than INRIA; prebuilt wheels | Best *library* — you write the loop. The "level 2" pick. Safest long-term bet. |
 | **Original 3DGS** (graphdeco-inria) | ~22.3k | Last major Oct 2024 | **Non-commercial research** | Python + CUDA | CC 7.0+; **24 GB VRAM** paper quality; conda | Highest baseline quality (~28.4 dB) and the benchmark. **Not a starting point** (license + fragility). |
 | **threestudio** | ~7k | Slowing (Aug 2024) | Apache-2.0 | Python / PyTorch | 6 GB min; DeepFloyd ~15 GB | **Different problem:** text/image→3D *generation*, not reconstruction. |
@@ -68,7 +67,7 @@ For **static scenes**, the field has decisively landed on **3D Gaussian Splattin
 | **Brush** | ~4.7k | Active (v0.3 Sep 2025) | Apache-2.0 | **Rust** / WebGPU + Burn | **No CUDA**; any GPU, Mac/Win/Linux/Android/browser | Best zero-setup / vendor-neutral / browser demo. **But Rust, not PyTorch.** |
 | **gaussian-splatting-lightning** | ~1.1k | Moderate (v0.12.1 Apr 2025) | Permissive | PyTorch **Lightning** | PyTorch 2.0.1, CUDA 11.8, multi-GPU | Good if you want Lightning structure + many derived algos. Niche vs Nerfstudio. |
 
-**Quality is essentially a tie** across INRIA (~28.4 dB), gsplat (~28.1), and Nerfstudio (~27.9) PSNR on standard benchmarks — pick on ergonomics/license, not quality. **gsplat is the most alive repo** (commits through June 2026). **Brush is the wildcard** — a browser-deployable 3DGS demo is a *strong* portfolio differentiator, at the cost of leaving PyTorch.
+**Quality is essentially a tie** across INRIA (~28.4 dB), gsplat (~28.1), and Nerfstudio (~27.9) PSNR on standard benchmarks — pick on ergonomics/license, not quality. **gsplat is the most alive repo** (commits through June 2026). **Brush is the wildcard** — a browser-deployable 3DGS demo is a *strong* standout, at the cost of leaving PyTorch.
 
 ---
 
@@ -123,7 +122,7 @@ Three architectural axes — understand this before choosing:
 | **Feed-forward 4D** (ReconDrive, WorldSplat, L4GM, Forge4D) | 2024–26 | Regress Gaussians in one pass, no per-scene optim | Varies (driving / sparse-view / image) | **Research-grade / domain-locked** | Very hard | [ReconDrive 2603.07552](https://arxiv.org/abs/2603.07552) · [WorldSplat 2509.23402](https://arxiv.org/abs/2509.23402) |
 
 ### Recommendation
-**Best maintained + reproducible: [Shape-of-Motion](https://github.com/vye16/shape-of-motion)** (ICCV 2025 Highlight). Strongest combo of (a) actively maintained, (b) **monocular** — only a phone video, no multi-camera rig, (c) produces *explicit persistent 3D motion trajectories*, exactly the "temporal consistency" story a portfolio wants (render the motion bases / point tracks, not just novel views). Catch: a preprocessing stack (monocular depth, masks, 2D point tracks) to stand up first — budget more time on data prep than training.
+**Best maintained + reproducible: [Shape-of-Motion](https://github.com/vye16/shape-of-motion)** (ICCV 2025 Highlight). Strongest combo of (a) actively maintained, (b) **monocular** — only a phone video, no multi-camera rig, (c) produces *explicit persistent 3D motion trajectories*, exactly the "temporal consistency" story you want (render the motion bases / point tracks, not just novel views). Catch: a preprocessing stack (monocular depth, masks, 2D point tracks) to stand up first — budget more time on data prep than training.
 
 - **Realistic for a solo dev (single 12–24 GB GPU):** Shape-of-Motion (monocular) + Deformable-3DGS / 4DGS-Wu on **synthetic D-NeRF** scenes (clean, fast, reproducible deformation-field demo). Start synthetic to get a pipeline, then a real monocular clip with Shape-of-Motion.
 - **Research-grade-hard:** Spacetime Gaussians, Dynamic-3DGS — need multi-view rigs and/or 48 GB GPUs. Not a good solo fit.
@@ -165,7 +164,7 @@ Three architectural axes — understand this before choosing:
 
 **Temporal / 4D** (on top of per-frame metrics): **tOF** ↓ (optical-flow MAE vs GT sequence) · **Temporal LPIPS / tLP** ↓ (perceptual frame-to-frame stability) · **Warping error** ↓ (flow-warp frame *t*→*t+1*, residual vs actual). Caveat: per-frame PSNR/SSIM/LPIPS reward "sharp but jittery" — temporal metrics catch the flicker. **Report both for 4D.**
 
-### What a credible portfolio result reports
+### What a credible result reports
 
 **Static NVS — vanilla 3DGS baseline (30k iters) to reproduce/beat:**
 
@@ -217,7 +216,7 @@ Also report **training time** (3DGS: tens of minutes on one consumer GPU) and **
 18. **Long-LRM: Long-Sequence Large Reconstruction Model** — Ziwen et al., 2024. *Feed-forward wide-coverage scenes from 32 images → Gaussians in ~1s (~800× speedup).* [2410.12781](https://arxiv.org/abs/2410.12781)
 19. **GWM: Scalable Gaussian World Models for Robotic Manipulation** — Lu et al., 2025 (ICCV). *3DGS world model (DiT + 3D-aware VAE) predicts future scene states under robot actions — directly bridges 3DGS and action-conditioned world models.* [2508.17600](https://arxiv.org/abs/2508.17600)
 
-> **Recent extensions to cite as "current work" (fresher, less established):** LangSplatV2 ([2507.07136](https://arxiv.org/abs/2507.07136), 450+ FPS language 3DGS), SemanticSplat ([2506.09565](https://arxiv.org/abs/2506.09565), feed-forward semantic Gaussian fields), GAF: Gaussian Action Field ([2506.14135](https://arxiv.org/abs/2506.14135), 4D action-conditioned manipulation). For a Reka-style world-models pitch, **VGGT + GWM + GAF** are the most on-target.
+> **Recent extensions to cite as "current work" (fresher, less established):** LangSplatV2 ([2507.07136](https://arxiv.org/abs/2507.07136), 450+ FPS language 3DGS), SemanticSplat ([2506.09565](https://arxiv.org/abs/2506.09565), feed-forward semantic Gaussian fields), GAF: Gaussian Action Field ([2506.14135](https://arxiv.org/abs/2506.14135), 4D action-conditioned manipulation). For a world-models direction, **VGGT + GWM + GAF** are the most on-target.
 
 ---
 
@@ -251,7 +250,7 @@ After M1 ships: take **one D-NeRF synthetic clip** through **Deformable-3DGS / 4
 - **Lowest risk / highest signal-per-effort:** Milestone 1 static path. The 3DGS reconstruction + eval is well-trodden; the only real unknown is OpenSplat3D's preproc env (CUDA/COLMAP). Pin CUDA 11.8.
 - **Medium:** semantic lifting reproducibility — have SAGA/LangSplat ready as fallbacks if OpenSplat3D's env fights you.
 - **Higher:** the 4D extension — Shape-of-Motion's preprocessing stack is the time sink, not training. Start on D-NeRF synthetic to de-risk before touching real video.
-- **Out of scope (mention as future direction):** feed-forward / generative reconstruction (VGGT) and Gaussian world models (GWM) — these are the most Reka-aligned topics intellectually, but building on them is phase-3, not a first milestone.
+- **Out of scope (mention as future direction):** feed-forward / generative reconstruction (VGGT) and Gaussian world models (GWM) — these are the most forward-looking (world-model) topics intellectually, but building on them is phase-3, not a first milestone.
 
 ---
 
