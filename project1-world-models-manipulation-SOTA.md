@@ -54,7 +54,7 @@ The [coverage↔accuracy wall](docs/experiments/plugchargerdense.md) diagnosed i
 | # | direction | why it fits |
 |---|---|---|
 | 1 | **Value-aware model learning** (HarmonyDream / VaGraM / ViVa) on the Dreamer setup | *Fixes the exact coverage↔accuracy wall* from PR #10 — closes the loop by applying a named SOTA method to our own measured problem |
-| 2 | **World-model-as-evaluator** harness on the task ladder | New capability, **Wayve-core** (their GAIA use); differentiated, reuses existing infra |
+| 2 | **World-model-as-evaluator** harness on the task ladder | A capability the study lacks — the policy-evaluation use of world models (cf. GAIA-2, OSCAR); reuses existing infra |
 | 3 | **VLA + RL fine-tune** (OpenVLA / π0 + EXPO-FT / VLA-RL) on our tasks | The current SOTA paradigm; gives the "pretrained prior beats from-scratch" contrast our study predicts |
 | 4 | Swap Dreamer's RSSM for a **video/diffusion WM** (World4RL / WMPO / Cosmos-derived) | Frontier WM class; tests whether a richer generative WM escapes the trap we found |
 
