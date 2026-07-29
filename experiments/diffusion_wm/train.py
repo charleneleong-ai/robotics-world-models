@@ -13,6 +13,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 os.environ.setdefault("WANDB_SILENT", "true")
 
@@ -79,10 +80,10 @@ class WarmupCosineLR:
     def current_lr(self) -> float:
         return self.optimizer.param_groups[0]["lr"]
 
-    def state_dict(self) -> dict:
+    def state_dict(self) -> dict[str, Any]:
         return {"_step": self._step, "base_lrs": self.base_lrs}
 
-    def load_state_dict(self, state: dict):
+    def load_state_dict(self, state: dict[str, Any]):
         self._step = state["_step"]
         self.base_lrs = state.get("base_lrs", self.base_lrs)
 
@@ -129,45 +130,22 @@ def main(
     train(cfg)
 
 
-def train(cfg: Config):
-    torch.manual_seed(cfg.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    assert device.type == "cuda", "CUDA required for training"
-
-    # Data
+def setup_training(cfg, device):
     obs_dim, act_dim = get_obs_act_dim(cfg.data_dir)
     print(f"Data: {cfg.data_dir} — obs_dim={obs_dim}, act_dim={act_dim}")
-    train_loader, val_loader = create_dataloader(
-        cfg.data_dir,
-        batch_size=cfg.batch_size,
-        num_workers=cfg.num_workers,
-        val_split=cfg.val_split,
-        seed=cfg.seed,
-    )
 
-    # Model
-    denoiser = MLPDenoiser(
-        obs_dim=obs_dim,
-        act_dim=act_dim,
-        hidden_dim=cfg.hidden_dim,
-        num_blocks=cfg.num_blocks,
-        cond_dim=cfg.cond_dim,
-    )
+    denoiser = MLPDenoiser(obs_dim=obs_dim, act_dim=act_dim, hidden_dim=cfg.hidden_dim, num_blocks=cfg.num_blocks, cond_dim=cfg.cond_dim)
     model = DiffusionDynamics(denoiser, timesteps=cfg.diffusion_timesteps).to(device)
     param_count = sum(p.numel() for p in model.parameters())
     print(f"Model: {param_count:,} parameters")
 
-    # Optimizer + scheduler
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay,
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     scheduler = WarmupCosineLR(optimizer, cfg.warmup_steps, cfg.num_steps)
 
-    # Checkpoint dir
+    train_loader, val_loader = create_dataloader(cfg.data_dir, batch_size=cfg.batch_size, num_workers=cfg.num_workers, val_split=cfg.val_split, seed=cfg.seed)
     ckpt_dir = cfg.checkpoint_dir / cfg.run_id
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    # Resume
     start_step = 0
     if cfg.resume:
         ckpt = torch.load(cfg.resume, map_location=device)
@@ -177,35 +155,39 @@ def train(cfg: Config):
         start_step = ckpt["step"] + 1
         print(f"Resumed from step {start_step} ({cfg.resume})")
 
-    # W&B
-    wandb.init(
-        project=cfg.project,
-        entity=cfg.entity,
-        name=cfg.run_id,
-        config={
-            "num_params": param_count,
-            "obs_dim": obs_dim,
-            "act_dim": act_dim,
-            "hidden_dim": cfg.hidden_dim,
-            "num_blocks": cfg.num_blocks,
-            "diffusion_timesteps": cfg.diffusion_timesteps,
-            "batch_size": cfg.batch_size,
-            "lr": cfg.lr,
-            "weight_decay": cfg.weight_decay,
-            "num_steps": cfg.num_steps,
-            "data_dir": str(cfg.data_dir),
-        },
-    )
+    wandb.init(project=cfg.project, entity=cfg.entity, name=cfg.run_id, config={
+        "num_params": param_count, "obs_dim": obs_dim, "act_dim": act_dim,
+        "hidden_dim": cfg.hidden_dim, "num_blocks": cfg.num_blocks,
+        "diffusion_timesteps": cfg.diffusion_timesteps, "batch_size": cfg.batch_size,
+        "lr": cfg.lr, "weight_decay": cfg.weight_decay, "num_steps": cfg.num_steps,
+        "data_dir": str(cfg.data_dir),
+    })
 
-    # Train loop
+    return model, optimizer, scheduler, train_loader, val_loader, start_step, ckpt_dir
+
+
+def save_checkpoint(path, step, model, optimizer, scheduler, cfg, val_loss=None):
+    torch.save({
+        "step": step, "model": model.state_dict(), "optimizer": optimizer.state_dict(),
+        "scheduler": scheduler.state_dict(), "config": cfg.__dict__,
+        **({"val_loss": val_loss} if val_loss is not None else {}),
+    }, path)
+
+
+def train(cfg: Config):
+    torch.manual_seed(cfg.seed)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    assert device.type == "cuda", "CUDA required for training"
+
+    model, optimizer, scheduler, train_loader, val_loader, start_step, ckpt_dir = setup_training(cfg, device)
+
     step = start_step
     best_val_loss = float("inf")
-    log_data = {}
+    val_loss: float | None = None
     data_iter = iter(train_loader)
     start_time = time.monotonic()
 
     while step < cfg.num_steps:
-        # Get batch
         try:
             batch = next(data_iter)
         except StopIteration:
@@ -216,7 +198,6 @@ def train(cfg: Config):
         action = batch["action"].to(device, non_blocking=True)
         next_obs = batch["next_obs"].to(device, non_blocking=True)
 
-        # Forward + backward
         loss = model(next_obs, obs, action)
         optimizer.zero_grad()
         loss.backward()
@@ -236,48 +217,22 @@ def train(cfg: Config):
                 "train/steps_per_sec": steps_per_sec,
             }, step=step)
 
-        # Validation
         if val_loader is not None and step > 0 and step % cfg.eval_interval == 0:
             val_loss = validate(model, val_loader, device)
             wandb.log({"val/loss": val_loss}, step=step)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                ckpt_path = ckpt_dir / "best.pt"
-                torch.save({
-                    "step": step,
-                    "model": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "scheduler": scheduler.state_dict(),
-                    "val_loss": val_loss,
-                    "config": cfg.__dict__,
-                }, ckpt_path)
-                print(f"  best model saved: {ckpt_path} (val_loss={val_loss:.6f})")
+                save_checkpoint(ckpt_dir / "best.pt", step, model, optimizer, scheduler, cfg, val_loss=val_loss)
+                print(f"  best model saved (val_loss={val_loss:.6f})")
 
-        # Checkpoint
         if step > 0 and step % cfg.save_interval == 0:
-            ckpt_path = ckpt_dir / f"step_{step:07d}.pt"
-            torch.save({
-                "step": step,
-                "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "scheduler": scheduler.state_dict(),
-                "val_loss": val_loss if val_loader else None,
-                "config": cfg.__dict__,
-            }, ckpt_path)
-            print(f"  checkpoint saved: {ckpt_path}")
+            save_checkpoint(ckpt_dir / f"step_{step:07d}.pt", step, model, optimizer, scheduler, cfg)
+            print(f"  checkpoint saved (step {step})")
 
         step += 1
 
-    # Final save
-    ckpt_path = ckpt_dir / "final.pt"
-    torch.save({
-        "step": step,
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "scheduler": scheduler.state_dict(),
-        "config": cfg.__dict__,
-    }, ckpt_path)
-    print(f"\nTraining complete. Final model: {ckpt_path}")
+    save_checkpoint(ckpt_dir / "final.pt", step, model, optimizer, scheduler, cfg)
+    print(f"\nTraining complete. Final model: {ckpt_dir / 'final.pt'}")
     wandb.finish()
 
 

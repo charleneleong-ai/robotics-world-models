@@ -46,7 +46,7 @@ def _build_cfg(base_dir: Path, overrides: dict):
     for k, v in overrides.items():
         OmegaConf.update(cfg, k, v, force_add=True)
     hydra.utils.get_original_cwd = lambda: str(base_dir)
-    from common.parser import parse_cfg
+    from common.parser import parse_cfg  # tdmpc2 dir on sys.path — not top-level
     return parse_cfg(cfg)
 
 
@@ -127,7 +127,7 @@ def compute_1step_metrics(
 @torch.no_grad()
 def compute_rollout_metrics(
     model: DiffusionDynamics, dataset: TransitionDataset, device: torch.device,
-    horizons: list[int] = (5, 10, 20),
+    horizons: tuple[int, ...] = (5, 10, 20),
     num_episodes: int = 100, num_denoise_steps: int = 100,
 ) -> dict[str, float]:
     """Compute multi-step rollout divergence.

@@ -48,7 +48,7 @@ def _build_cfg(base_dir: Path, overrides: dict) -> OmegaConf:
     for k, v in overrides.items():
         OmegaConf.update(cfg, k, v, force_add=True)
     hydra.utils.get_original_cwd = lambda: str(base_dir)
-    from common.parser import parse_cfg
+    from common.parser import parse_cfg  # tdmpc2 dir added to sys.path at runtime
     return parse_cfg(cfg)
 
 
@@ -72,45 +72,41 @@ def main(
     (out / "meta").mkdir(exist_ok=True)
     assert torch.cuda.is_available(), "CUDA required for fast sim."
 
-    # --- Build cfg & env ---
-    base_dir = _resolve_tdmpc2_dir()
-    sys.path.insert(0, str(base_dir))
-
-    overrides = {
-        "env_id": env_id,
-        "model_size": model_size,
-        "obs": obs,
-        "control_mode": control_mode,
-        "num_envs": num_envs,
-        "num_eval_envs": num_envs,
-        "eval_episodes_per_env": 1,
-        "env_type": "gpu",
-        "seed": seed,
-        "checkpoint": str(checkpoint),
-        "save_video_local": False,
-    }
-    cfg = _build_cfg(base_dir, overrides)
-
-    from common.seed import set_seed
-    from envs import make_envs
+    cfg = _build_policy_cfg(checkpoint, env_id, obs, control_mode, num_envs, seed, model_size)
     from tdmpc2 import TDMPC2
+    from common.seed import set_seed  # tdmpc2 dir on sys.path — not a top-level package
+    from envs import make_envs
 
     set_seed(cfg.seed)
     env = make_envs(cfg, cfg.num_envs, is_eval=True)
     agent = TDMPC2(cfg)
     assert checkpoint.exists(), f"Checkpoint {checkpoint} not found."
     agent.load(str(checkpoint))
-    device = "cuda" if cfg.env_type == "gpu" else "cpu"
 
-    # --- Collection loop ---
+    collect_loop(agent, env, num_episodes, env_id, policy_type, num_envs, shard_size, out)
+    env.close()
+
+
+def _build_policy_cfg(checkpoint, env_id, obs, control_mode, num_envs, seed, model_size):
+    base_dir = _resolve_tdmpc2_dir()
+    sys.path.insert(0, str(base_dir))
+    overrides = {
+        "env_id": env_id, "model_size": model_size, "obs": obs,
+        "control_mode": control_mode, "num_envs": num_envs,
+        "num_eval_envs": num_envs, "eval_episodes_per_env": 1,
+        "env_type": "gpu", "seed": seed, "checkpoint": str(checkpoint),
+        "save_video_local": False,
+    }
+    return _build_cfg(base_dir, overrides)
+
+
+def collect_loop(agent, env, num_episodes, env_id, policy_type, num_envs, shard_size, out):
     obs_buf, _ = env.reset()
     episodes_collected = 0
     transitions = []
     step_count = 0
     shard_idx = 0
     timers = {"reset": 0.0, "act": 0.0, "step": 0.0}
-    episode_steps = np.zeros(cfg.num_envs, dtype=np.int32)
-    episode_reward = np.zeros(cfg.num_envs, dtype=np.float32)
 
     print(f"Collecting {num_episodes} episodes from {env_id} ({policy_type})...")
     start_time = time.monotonic()
@@ -118,19 +114,11 @@ def main(
     log_interval = 1000
 
     while episodes_collected < num_episodes:
-        # Act
-        t0 = time.monotonic()
         action = agent.act(obs_buf, t0=False, eval_mode=True)
-        timers["act"] += time.monotonic() - t0
-
-        # Step
-        t0 = time.monotonic()
         next_obs, reward, terminated, truncated, info = env.step(action)
-        timers["step"] += time.monotonic() - t0
         done = terminated | truncated
 
-        # Store transitions
-        for i in range(cfg.num_envs):
+        for i in range(num_envs):
             transitions.append({
                 "obs": obs_buf[i].cpu().numpy().astype(np.float32),
                 "action": action[i].cpu().numpy().astype(np.float32),
@@ -138,73 +126,47 @@ def main(
                 "reward": float(reward[i].cpu().item()),
                 "done": bool(done[i].cpu().item()),
             })
-            episode_steps[i] += 1
-            episode_reward[i] += float(reward[i].cpu().item())
 
         step_count += 1
-        pbar_step += cfg.num_envs
+        pbar_step += num_envs
 
-        # Handle done episodes (reset + count)
         if done.any():
-            t0 = time.monotonic()
             for i in np.where(done.cpu().numpy())[0]:
                 episodes_collected += 1
-                episode_steps[i] = 0
-                episode_reward[i] = 0.0
             obs_buf, _ = env.reset()
-            timers["reset"] += time.monotonic() - t0
         else:
             obs_buf = next_obs
 
-        # Write shard when buffer is full
         if len(transitions) >= shard_size:
             _write_shard(transitions, out, shard_idx)
             shard_idx += 1
             transitions = []
 
-        # Log
-        if pbar_step >= log_interval * cfg.num_envs:
+        if pbar_step >= log_interval * num_envs:
             elapsed = time.monotonic() - start_time
             fps = pbar_step / elapsed if elapsed > 0 else 0
-            print(
-                f"  collected {episodes_collected}/{num_episodes} eps, "
-                f"{pbar_step} steps, {fps:.0f} fps, "
-                f"act={timers['act']/elapsed*100:.1f}% step={timers['step']/elapsed*100:.1f}%"
-            )
+            print(f"  collected {episodes_collected}/{num_episodes} eps, {pbar_step} steps, {fps:.0f} fps")
             pbar_step = 0
 
-    # Flush remaining
     if transitions:
         _write_shard(transitions, out, shard_idx)
         shard_idx += 1
 
     elapsed = time.monotonic() - start_time
-    total_steps = step_count * cfg.num_envs
-    print(
-        f"\nDone: {episodes_collected} episodes, {total_steps} transitions, "
-        f"{elapsed:.0f}s ({total_steps/elapsed:.0f} fps)"
-    )
+    total_steps = step_count * num_envs
+    print(f"\nDone: {episodes_collected} episodes, {total_steps} transitions, {elapsed:.0f}s ({total_steps/elapsed:.0f} fps)")
 
-    # Write meta
     obs_dim = len(transitions[0]["obs"]) if transitions else 0
     act_dim = len(transitions[0]["action"]) if transitions else 0
     meta = {
-        "env_id": env_id,
-        "policy_type": policy_type,
-        "num_episodes": episodes_collected,
-        "num_transitions": total_steps,
-        "obs_dim": obs_dim,
-        "act_dim": act_dim,
-        "obs_mode": obs,
-        "control_mode": control_mode,
-        "num_shards": shard_idx,
-        "shard_size": shard_size,
-        "fps": total_steps / elapsed,
+        "env_id": env_id, "policy_type": policy_type,
+        "num_episodes": episodes_collected, "num_transitions": total_steps,
+        "obs_dim": obs_dim, "act_dim": act_dim,
+        "obs_mode": "state", "control_mode": "pd_joint_delta_pos",
+        "num_shards": shard_idx, "shard_size": shard_size, "fps": total_steps / elapsed,
     }
     (out / "meta/collection.json").write_text(json.dumps(meta, indent=2))
     print(f"Meta: {out / 'meta/collection.json'}")
-
-    env.close()
 
 
 def _write_shard(transitions: list[dict], out_dir: Path, idx: int) -> None:
