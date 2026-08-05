@@ -1,0 +1,25 @@
+# Sweep recipe: PlugCharger TD-MPC2 — can the world model succeed where model-free RL
+# categorically failed? Stock PlugCharger-v1 (sparse reward) got 0.00 from every RL variant.
+# This sweep uses PlugChargerDense-v1 (custom dense reward from experiments/envs/plugcharger_dense.py)
+# to give TD-MPC2 a learning signal and test whether the world model's planning can exploit
+# the dense shaping that model-free RL converted only to farming (v1) or marginal signal (v2-v5).
+#
+# The dense reward was engineered through v1-v5 iterations — see docs/experiments/plugchargerdense.md.
+# v4 (additive success bonus, farm-proof) is the version registered as PlugChargerDense-v1.
+task: plugcharger_tdmpc2
+env_id: PlugChargerDense-v1
+obs: state
+description: >
+  TD-MPC2 on PlugChargerDense-v1 — the world model with a dense reward on extreme-precision
+  keyed insertion. All model-free RL variants failed here (eval success 0 across dense v1-v5,
+  RLPL, EE control). TD-MPC2's MPC planning searches action sequences; does this help where
+  reactive optimization failed? Stock PlugCharger-v1 (sparse) already got 0.00 from TD-MPC2;
+  the dense reward is the only variable. 1 seed is enough for a first signal; extend to 3-5
+  if success appears.
+
+configs:
+  tdmpc2:
+    launcher: benchmarks/ManiSkill/examples/baselines/tdmpc2/train.py
+    overrides: { model_size: 5, steps: 2_000_000, num_envs: 32, control_mode: pd_joint_delta_pos, buffer_size: 1_000_000 }
+    timeout_min: 1800
+    seeds: [1]
