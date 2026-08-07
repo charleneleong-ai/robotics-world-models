@@ -56,9 +56,12 @@ def _build_cfg(base_dir: Path, overrides: dict):
 
 
 def _load_tdmpc2_dynamics(
-    checkpoint: Path, env_id: str = "PegInsertionSide-v1", model_size: int = 5,
+    checkpoint: str | Path, env_id: str = "PegInsertionSide-v1", model_size: int = 5,
+    obs_dim: int = 43, act_dim: int = 8,
 ) -> tuple:
     """Load TD-MPC2 and return its dynamics head for comparison."""
+    checkpoint = Path(checkpoint)
+    assert checkpoint.exists(), f"TD-MPC2 checkpoint {checkpoint} not found."
     base_dir = _resolve_tdmpc2_dir()
     import sys
     sys.path.insert(0, str(base_dir))
@@ -68,11 +71,12 @@ def _load_tdmpc2_dynamics(
         "control_mode": "pd_joint_delta_pos", "num_envs": 1, "num_eval_envs": 1,
         "eval_episodes_per_env": 1, "env_type": "gpu", "seed": 1,
         "checkpoint": str(checkpoint), "save_video_local": False,
+        "multitask": False, "obs_shape": {"state": [obs_dim]},
+        "action_dim": act_dim, "episode_length": 200,
     }
     cfg = _build_cfg(base_dir, overrides)
     from tdmpc2 import TDMPC2
     agent = TDMPC2(cfg)
-    assert checkpoint.exists(), f"TD-MPC2 checkpoint {checkpoint} not found."
     agent.load(str(checkpoint))
     return agent
 
