@@ -35,11 +35,16 @@ DEFAULT_TDMPC2_DIR = Path("/workspace/ManiSkill/examples/baselines/tdmpc2")
 
 
 def _resolve_tdmpc2_dir() -> Path:
-    for cand in (Path.cwd(), DEFAULT_TDMPC2_DIR):
+    candidates = (
+        Path.cwd(),
+        DEFAULT_TDMPC2_DIR,
+        Path(__file__).resolve().parent.parent.parent / "benchmarks" / "ManiSkill" / "examples" / "baselines" / "tdmpc2",
+    )
+    for cand in candidates:
         if (cand / "config.yaml").exists() and (cand / "common").is_dir():
             return cand
     raise FileNotFoundError(
-        f"Could not locate tdmpc2 baseline dir. Looked in {Path.cwd()} and {DEFAULT_TDMPC2_DIR}."
+        f"Could not locate tdmpc2 baseline dir. Looked in {', '.join(str(c) for c in candidates)}."
     )
 
 
@@ -156,8 +161,7 @@ def collect_loop(agent, env, num_episodes, env_id, policy_type, num_envs, shard_
     total_steps = step_count * num_envs
     print(f"\nDone: {episodes_collected} episodes, {total_steps} transitions, {elapsed:.0f}s ({total_steps/elapsed:.0f} fps)")
 
-    obs_dim = len(transitions[0]["obs"]) if transitions else 0
-    act_dim = len(transitions[0]["action"]) if transitions else 0
+    obs_dim, act_dim = _shard_dims(out, shard_idx)
     meta = {
         "env_id": env_id, "policy_type": policy_type,
         "num_episodes": episodes_collected, "num_transitions": total_steps,
@@ -167,6 +171,15 @@ def collect_loop(agent, env, num_episodes, env_id, policy_type, num_envs, shard_
     }
     (out / "meta/collection.json").write_text(json.dumps(meta, indent=2))
     print(f"Meta: {out / 'meta/collection.json'}")
+
+
+def _shard_dims(out_dir: Path, num_shards: int) -> tuple[int, int]:
+    """Obs/action dims from the last written shard (authoritative)."""
+    last_shard = out_dir / f"shard_{max(0, num_shards - 1):05d}.npz"
+    if not last_shard.exists():
+        raise FileNotFoundError(f"No shard found for dim inference: {last_shard}")
+    with np.load(last_shard) as data:
+        return data["obs"].shape[1], data["action"].shape[1]
 
 
 def _write_shard(transitions: list[dict], out_dir: Path, idx: int) -> None:

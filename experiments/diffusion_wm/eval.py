@@ -35,10 +35,15 @@ DEFAULT_TDMPC2_DIR = Path("/workspace/ManiSkill/examples/baselines/tdmpc2")
 
 
 def _resolve_tdmpc2_dir() -> Path:
-    for cand in (Path.cwd(), DEFAULT_TDMPC2_DIR):
+    candidates = (
+        Path.cwd(),
+        DEFAULT_TDMPC2_DIR,
+        Path(__file__).resolve().parent.parent.parent / "benchmarks" / "ManiSkill" / "examples" / "baselines" / "tdmpc2",
+    )
+    for cand in candidates:
         if (cand / "config.yaml").exists() and (cand / "common").is_dir():
             return cand
-    raise FileNotFoundError(f"tdmpc2 dir not found")
+    raise FileNotFoundError("tdmpc2 dir not found")
 
 
 def _build_cfg(base_dir: Path, overrides: dict):
@@ -183,6 +188,73 @@ def compute_rollout_metrics(
     return results
 
 
+def compute_tdmpc2_metrics(
+    agent: object, dataset: TransitionDataset, device: torch.device,
+    num_samples: int = 2000, num_episodes: int = 100,
+    horizons: tuple[int, ...] = (5, 10, 20), seed: int = 42,
+) -> dict[str, float]:
+    """Latent-space dynamics error + rollout divergence for TD-MPC2.
+
+    This ManiSkill baseline's WorldModel has no observation decoder, so the
+    comparison happens in latent space: predict next(z_t, a_t) and compare
+    against encode(next_obs). Rollouts track drift from the true latent path.
+    """
+    model = agent.model
+    model.eval()
+    rng = np.random.default_rng(seed)
+
+    indices = rng.choice(len(dataset), min(num_samples, len(dataset)), replace=False)
+    mse_total = 0.0
+    mae_total = 0.0
+    latent_dim = 0
+    for idx in indices:
+        item = dataset[idx]
+        obs = item["obs"].unsqueeze(0).to(device)
+        action = item["action"].unsqueeze(0).to(device)
+        next_obs = item["next_obs"].unsqueeze(0).to(device)
+        z = model.encode(obs, None)
+        z_next_pred = model.next(z, action, None)
+        z_next_true = model.encode(next_obs, None)
+        latent_dim = z.size(-1)
+        mse_total += (z_next_pred - z_next_true).pow(2).mean().item()
+        mae_total += (z_next_pred - z_next_true).abs().mean().item()
+    n = len(indices)
+    metrics: dict[str, float] = {
+        "tdmpc2_1step_latent_mse": mse_total / n,
+        "tdmpc2_1step_latent_mae": mae_total / n,
+        "tdmpc2_latent_dim": latent_dim,
+    }
+
+    ep_indices = rng.choice(len(dataset), num_episodes, replace=False)
+    for h in horizons:
+        mse_total = 0.0
+        count = 0
+        for start_idx in ep_indices:
+            end_idx = min(start_idx + h, len(dataset) - 1)
+            actual_h = end_idx - start_idx
+            if actual_h < 1:
+                continue
+            states = []
+            actions = []
+            for i in range(start_idx, end_idx + 1):
+                item = dataset[i]
+                if i == start_idx:
+                    states.append(item["obs"])
+                states.append(item["next_obs"])
+                actions.append(item["action"])
+            states_t = torch.stack(states).to(device)
+            actions_t = torch.stack(actions).to(device)
+
+            z = model.encode(states_t[:1], None)
+            for t in range(actual_h):
+                z = model.next(z, actions_t[t:t + 1], None)
+            z_true = model.encode(states_t[1:actual_h + 1], None)
+            mse_total += (z - z_true).pow(2).mean().item()
+            count += 1
+        metrics[f"tdmpc2_rollout_{h}step_latent_mse"] = mse_total / max(1, count)
+    return metrics
+
+
 def main(
     checkpoint: Path = typer.Option(..., help="Diffusion model checkpoint (.pt)."),
     data_dir: Path = typer.Option(..., help="Data directory with shards."),
@@ -233,34 +305,14 @@ def main(
     if tdmpc2_checkpoint:
         print("Loading TD-MPC2 for comparison...")
         agent = _load_tdmpc2_dynamics(tdmpc2_checkpoint)
-        # Evaluate TD-MPC2's dynamics head (model._dynamics) on same data
-        # TD-MPC2 uses a deterministic dynamics: mu, log_var = model._dynamics(z, a)
-        agent.model.eval()
-        if hasattr(agent.model, "_dynamics"):
-            from collections import defaultdict
-            tdmpc2_errs = defaultdict(list)
-            for idx in np.random.choice(len(dataset), min(num_eval_samples, len(dataset)), replace=False):
-                item = dataset[idx]
-                obs_t = item["obs"].unsqueeze(0).to(device)
-                action_t = item["action"].unsqueeze(0).to(device)
-                next_obs_gt = item["next_obs"].to(device)
-
-                # TD-MPC2 encodes obs to latent, predicts next latent, decodes
-                with torch.no_grad():
-                    z = agent.model.encode(obs_t, action_t)
-                    z_next_pred = agent.model._dynamics(z, action_t)
-                    next_obs_pred = agent.model.decode(z_next_pred)
-                    mse = (next_obs_pred.squeeze(0) - next_obs_gt).pow(2).mean().item()
-                    mae = (next_obs_pred.squeeze(0) - next_obs_gt).abs().mean().item()
-                    tdmpc2_errs["mse"].append(mse)
-                    tdmpc2_errs["mae"].append(mae)
-
-            tdmpc2_metrics = {
-                "tdmpc2_1step_mse": float(np.mean(tdmpc2_errs["mse"])),
-                "tdmpc2_1step_mae": float(np.mean(tdmpc2_errs["mae"])),
-            }
-            print(f"  TD-MPC2 1-step MSE: {tdmpc2_metrics['tdmpc2_1step_mse']:.6f}")
-            print(f"  TD-MPC2 1-step MAE: {tdmpc2_metrics['tdmpc2_1step_mae']:.6f}")
+        tdmpc2_metrics = compute_tdmpc2_metrics(
+            agent, dataset, device,
+            num_samples=num_eval_samples,
+            num_episodes=num_rollout_episodes,
+            seed=seed,
+        )
+        print(f"  TD-MPC2 1-step latent MSE: {tdmpc2_metrics['tdmpc2_1step_latent_mse']:.6f}")
+        print(f"  TD-MPC2 1-step latent MAE: {tdmpc2_metrics['tdmpc2_1step_latent_mae']:.6f}")
 
     # Save results
     results = {

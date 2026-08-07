@@ -92,7 +92,8 @@ def get_obs_act_dim(data_dir: Path) -> tuple[int, int]:
     meta_path = data_dir / "meta" / "collection.json"
     if meta_path.exists():
         meta = json.loads(meta_path.read_text())
-        return meta["obs_dim"], meta["act_dim"]
+        if meta["obs_dim"] > 0 and meta["act_dim"] > 0:
+            return meta["obs_dim"], meta["act_dim"]
     shards = sorted(data_dir.glob("shard_*.npz"))
     if not shards:
         raise FileNotFoundError(f"No shards or meta found in {data_dir}")
