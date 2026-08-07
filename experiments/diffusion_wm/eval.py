@@ -333,6 +333,67 @@ def main(
     out_path.write_text(json.dumps(results, indent=2))
     print(f"\nResults saved to {out_path}")
 
+    log_media(model, dataset, device, out, step_metrics, rollout_metrics, tdmpc2_metrics)
+
+
+def log_media(
+    model: DiffusionDynamics,
+    dataset: TransitionDataset,
+    device: torch.device,
+    out: Path,
+    step_metrics: dict[str, float],
+    rollout_metrics: dict[str, float],
+    tdmpc2_metrics: dict[str, float],
+):
+    """Save plotly charts (HTML) and log to wandb when available."""
+    try:
+        import wandb
+    except ImportError:
+        wandb = None  # type: ignore[assignment]
+    from experiments.diffusion_wm.viz import denoising_grid, rollout_trajectories
+
+    # Fixed media batch from val split (same seed so deterministic)
+    rng = torch.Generator().manual_seed(7)
+    idx = torch.randint(0, len(dataset), (4,), generator=rng)
+    items = [dataset[i.item()] for i in idx]
+    obs = torch.stack([it["obs"] for it in items]).to(device)
+    action = torch.stack([it["action"] for it in items]).to(device)
+    next_obs = torch.stack([it["next_obs"] for it in items]).to(device)
+
+    fig_grid = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
+    fig_rollout = rollout_trajectories(model, dataset, device, num_episodes=3, horizon=20)
+
+    out.mkdir(parents=True, exist_ok=True)
+    grid_html = out / "denoising_grid.html"
+    rollout_html = out / "rollout_trajectories.html"
+    fig_grid.write_html(grid_html)
+    fig_rollout.write_html(rollout_html)
+    print(f"Saved media: {grid_html}, {rollout_html}")
+
+    if wandb is None:
+        print("wandb not installed — media logged as HTML only")
+        return
+    wandb.init(
+        project="wm-manip", entity="chaleong",
+        name=f"eval-{out.name}",
+        config={
+            "1step_mse": step_metrics["1step_mse"],
+            "1step_mae": step_metrics["1step_mae"],
+            **{k: v for k, v in rollout_metrics.items() if "mse" in k},
+            **{k: v for k, v in tdmpc2_metrics.items() if "mse" in k},
+        },
+    )
+    run_id = wandb.run.id if wandb.run else "?"
+    wandb.log({
+        "media/denoising_grid": wandb.Plotly(fig_grid),
+        "media/rollout_trajectories": wandb.Plotly(fig_rollout),
+        **{f"metrics/{k}": v for k, v in step_metrics.items()},
+        **{f"metrics/{k}": v for k, v in rollout_metrics.items()},
+        **{f"metrics/{k}": v for k, v in tdmpc2_metrics.items()},
+    })
+    wandb.finish()
+    print(f"Logged media + metrics to wandb run {run_id}")
+
 
 if __name__ == "__main__":
     typer.run(main)

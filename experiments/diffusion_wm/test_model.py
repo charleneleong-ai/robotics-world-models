@@ -177,3 +177,58 @@ class TestTrainingSmoke:
         loss = small_model(next_obs, obs, action)
         loss.backward()
         assert all(p.grad is not None for p in small_model.parameters() if p.requires_grad)
+
+
+# ---------------------------------------------------------------------------
+# Denoising progress (media)
+# ---------------------------------------------------------------------------
+
+class TestDenoiseWithProgress:
+    def test_milestone_shapes(self, model, batch):
+        milestones = (75, 50, 25, 0)
+        ests = model.denoise_with_progress(
+            batch["obs"], batch["action"], num_steps=100, milestones=milestones,
+        )
+        assert len(ests) == len(milestones)
+        for est in ests:
+            assert est.shape == batch["next_obs"].shape
+
+    def test_default_milestones(self, model, batch):
+        ests = model.denoise_with_progress(batch["obs"], batch["action"], num_steps=100)
+        assert len(ests) == 4  # 3T/4, T/2, T/4, 0
+
+    def test_trained_model_denoises_toward_gt(self):
+        """After training, x0 estimates improve monotonically as t -> 0."""
+        torch.manual_seed(0)
+        den = MLPDenoiser(obs_dim=4, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        m = DiffusionDynamics(den, timesteps=10)
+        opt = torch.optim.AdamW(m.parameters(), lr=1e-3)
+        obs = torch.randn(64, 4)
+        action = torch.randn(64, 2)
+        next_obs = obs + torch.cat([action, action], dim=1)  # learnable target
+        for _ in range(400):
+            opt.zero_grad()
+            loss = m(next_obs, obs, action)
+            loss.backward()
+            opt.step()
+
+        ests = m.denoise_with_progress(obs[:8], action[:8], num_steps=10, milestones=(7, 5, 3, 0))
+        errs = [(e - next_obs[:8]).pow(2).mean().item() for e in ests]
+        assert errs[-1] < errs[0]
+        assert errs == sorted(errs, reverse=True)  # monotonic improvement (noisiest -> cleanest)
+
+
+class TestViz:
+    @pytest.fixture
+    def small_model(self) -> DiffusionDynamics:
+        den = MLPDenoiser(obs_dim=4, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        return DiffusionDynamics(den, timesteps=10)
+
+    def test_denoising_grid_figure(self, small_model):
+        from experiments.diffusion_wm.viz import denoising_grid
+        obs = torch.randn(4, 4)
+        action = torch.randn(4, 2)
+        next_obs = torch.randn(4, 4)
+        fig = denoising_grid(small_model, obs, action, next_obs, milestones=(7, 3, 0), num_steps=10)
+        assert len(fig.data) == 4 * (3 + 1)  # samples x (milestones + GT)
+

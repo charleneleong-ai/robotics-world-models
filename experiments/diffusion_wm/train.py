@@ -26,6 +26,22 @@ import wandb
 from experiments.diffusion_wm.dataset import create_dataloader
 from experiments.diffusion_wm.model import DiffusionDynamics, MLPDenoiser
 
+_MEDIA_POOL_SIZE = 32
+_media_obs: torch.Tensor | None = None
+_media_action: torch.Tensor | None = None
+_media_next: torch.Tensor | None = None
+
+
+def _cache_media_pool(val_loader, device: torch.device):
+    """Cache a fixed media batch (deterministic first-val-batch slice)."""
+    global _media_obs, _media_action, _media_next
+    if _media_obs is not None:
+        return
+    batch = next(iter(val_loader))
+    _media_obs = batch["obs"][:_MEDIA_POOL_SIZE].to(device)
+    _media_action = batch["action"][:_MEDIA_POOL_SIZE].to(device)
+    _media_next = batch["next_obs"][:_MEDIA_POOL_SIZE].to(device)
+
 
 @dataclass
 class Config:
@@ -147,6 +163,7 @@ def setup_training(cfg, device):
     scheduler = WarmupCosineLR(optimizer, cfg.warmup_steps, cfg.num_steps)
 
     train_loader, val_loader = create_dataloader(cfg.data_dir, batch_size=cfg.batch_size, num_workers=cfg.num_workers, val_split=cfg.val_split, seed=cfg.seed)
+    _cache_media_pool(val_loader, device)
     ckpt_dir = cfg.checkpoint_dir / cfg.run_id
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
@@ -228,6 +245,7 @@ def train(cfg: Config):
                 best_val_loss = val_loss
                 save_checkpoint(ckpt_dir / "best.pt", step, model, optimizer, scheduler, cfg, val_loss=val_loss)
                 print(f"  best model saved (val_loss={val_loss:.6f})")
+            log_denoising_grid(model, step)
 
         if step > 0 and step % cfg.save_interval == 0:
             save_checkpoint(ckpt_dir / f"step_{step:07d}.pt", step, model, optimizer, scheduler, cfg)
@@ -238,6 +256,23 @@ def train(cfg: Config):
     save_checkpoint(ckpt_dir / "final.pt", step, model, optimizer, scheduler, cfg)
     print(f"\nTraining complete. Final model: {ckpt_dir / 'final.pt'}")
     wandb.finish()
+
+
+@torch.no_grad()
+def log_denoising_grid(model: DiffusionDynamics, step: int):
+    """Log denoising-progress grid to wandb from a small fixed batch."""
+    if _media_obs is None:
+        return
+    model.eval()
+    rng = torch.Generator().manual_seed(7)
+    idx = torch.randint(0, _media_obs.size(0), (4,), generator=rng)
+    obs = _media_obs[idx]
+    action = _media_action[idx]
+    next_obs = _media_next[idx]
+    from experiments.diffusion_wm.viz import denoising_grid  # local import: keeps GPU module import light at top
+    fig = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
+    wandb.log({"media/denoising_grid": wandb.Plotly(fig)}, step=step)
+    model.train()
 
 
 @torch.no_grad()

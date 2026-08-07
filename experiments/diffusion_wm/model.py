@@ -203,6 +203,45 @@ class DiffusionDynamics(nn.Module):
         return x
 
     @torch.no_grad()
+    def denoise_with_progress(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        num_steps: int | None = None,
+        milestones: tuple[int, ...] | None = None,
+    ) -> list[torch.Tensor]:
+        """Denoise capturing clean-state estimates at milestone timesteps.
+
+        Returns x_0 estimates (via the model's epsilon prediction) at each
+        milestone, in reverse-process order (noisiest first, final last).
+        """
+        n = state.size(0)
+        T = num_steps or self.timesteps
+        milestones = milestones or (3 * T // 4, T // 2, T // 4, 0)
+        device = state.device
+
+        x = torch.randn(n, self.obs_dim, device=device)
+        estimates: dict[int, torch.Tensor] = {}
+
+        for t in reversed(range(T)):
+            t_batch = torch.full((n,), t, device=device, dtype=torch.float)
+            pred_noise = self.denoiser(x, state, action, t_batch)
+            if t in milestones:
+                sqrt_one_minus = (1 - self.alphas_cumprod[t]).sqrt()
+                x0_hat = (x - sqrt_one_minus * pred_noise) / self.sqrt_alphas_cumprod[t]
+                estimates[t] = x0_hat
+            alpha = self.alphas[t]
+            alpha_cumprod = self.alphas_cumprod[t]
+            beta = self.betas[t]
+            coef1 = 1 / alpha.sqrt()
+            coef2 = (1 - alpha) / (1 - alpha_cumprod).sqrt()
+            x = coef1 * (x - coef2 * pred_noise)
+            if t > 0:
+                x += beta.sqrt() * torch.randn_like(x)
+
+        return [estimates[t] for t in milestones]
+
+    @torch.no_grad()
     def rollout(
         self,
         states: torch.Tensor,
