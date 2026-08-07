@@ -51,6 +51,8 @@ class Config:
     cond_dim: int = 256
     diffusion_timesteps: int = 1000
     inference_steps: int = 100
+    obs_dim: int | None = None  # populated at runtime from data shards
+    act_dim: int | None = None
 
     # Data
     num_workers: int = 4
@@ -133,6 +135,7 @@ def main(
 
 def setup_training(cfg, device):
     obs_dim, act_dim = get_obs_act_dim(cfg.data_dir)
+    cfg.obs_dim, cfg.act_dim = obs_dim, act_dim
     print(f"Data: {cfg.data_dir} — obs_dim={obs_dim}, act_dim={act_dim}")
 
     denoiser = MLPDenoiser(obs_dim=obs_dim, act_dim=act_dim, hidden_dim=cfg.hidden_dim, num_blocks=cfg.num_blocks, cond_dim=cfg.cond_dim)
@@ -149,7 +152,7 @@ def setup_training(cfg, device):
 
     start_step = 0
     if cfg.resume:
-        ckpt = torch.load(cfg.resume, map_location=device)
+        ckpt = torch.load(cfg.resume, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
         scheduler.load_state_dict(ckpt["scheduler"])

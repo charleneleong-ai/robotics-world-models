@@ -82,10 +82,13 @@ def _load_tdmpc2_dynamics(
 
 
 def load_model(checkpoint: Path, device: torch.device) -> DiffusionDynamics:
-    ckpt = torch.load(checkpoint, map_location=device)
+    ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
     cfg = ckpt["config"]
-    obs_dim = cfg.get("obs_dim", 45)
-    act_dim = cfg.get("act_dim", 8)
+    sd = ckpt["model"]
+    out_w = sd["denoiser.output_proj.1.weight"]
+    in_w = sd["denoiser.input_proj.weight"]
+    obs_dim = cfg.get("obs_dim") or out_w.shape[0]
+    act_dim = cfg.get("act_dim") or (in_w.shape[1] - 2 * obs_dim)
     denoiser = MLPDenoiser(
         obs_dim=obs_dim,
         act_dim=act_dim,
