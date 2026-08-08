@@ -278,5 +278,5 @@ class TestViz:
         action = torch.randn(4, 2)
         next_obs = torch.randn(4, 4)
         fig = denoising_grid(small_model, obs, action, next_obs, milestones=(7, 3, 0), num_steps=10)
-        assert len(fig.data) == 4 * (3 + 1)  # samples x (milestones + GT)
+        assert len(fig.data) == 4 * 3 * 2  # samples x milestones x (estimate + GT overlay)
 

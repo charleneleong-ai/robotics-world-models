@@ -28,35 +28,39 @@ def denoising_grid(
     num_steps: int = 1000,
     max_rows: int = 4,
 ) -> go.Figure:
-    """Rows = samples, cols = milestone timesteps (noisiest -> clean)."""
+    """Rows = samples, cols = milestone timesteps (noisiest -> clean) with GT overlaid."""
     n = min(state.size(0), max_rows)
     state, action, next_obs = state[:n], action[:n], next_obs[:n]
     estimates = model.denoise_with_progress(state, action, num_steps=num_steps, milestones=milestones)
 
     fig = make_subplots(
-        rows=n, cols=len(milestones) + 1,
-        subplot_titles=[f"x0 estimate @ t={t}" for t in milestones] + ["GT next obs"],
+        rows=n, cols=len(milestones),
+        subplot_titles=[f"x0 estimate @ t={t}" for t in milestones],
     )
     for r in range(n):
         for c, est in enumerate(estimates):
             fig.add_trace(
                 go.Scatter(
                     y=[float(v) for v in est[r].cpu().flatten()],
-                    mode="lines", line={"color": _PRED_COLOR}, showlegend=False,
+                    mode="lines", line={"color": _PRED_COLOR},
+                    showlegend=(r == 0 and c == 0), name="x0 estimate",
+                    legendgroup="pred",
                 ),
                 row=r + 1, col=c + 1,
             )
-        fig.add_trace(
-            go.Scatter(
-                y=[float(v) for v in next_obs[r].cpu().flatten()],
-                mode="lines", line={"color": _GT_COLOR, "dash": "dash"}, showlegend=False,
-            ),
-            row=r + 1, col=len(milestones) + 1,
-        )
+            fig.add_trace(
+                go.Scatter(
+                    y=[float(v) for v in next_obs[r].cpu().flatten()],
+                    mode="lines", line={"color": _GT_COLOR, "dash": "dash"},
+                    showlegend=(r == 0 and c == 0), name="GT next obs",
+                    legendgroup="GT",
+                ),
+                row=r + 1, col=c + 1,
+            )
         fig.update_yaxes(title_text=f"sample {r}", row=r + 1, col=1)
     fig.update_layout(
         height=170 * n, width=900,
-        title=f"Denoising progress — x0 estimates across timesteps ({num_steps} reverse steps)",
+        title=f"Denoising progress — x0 estimates vs GT across timesteps ({num_steps} reverse steps)",
     )
     return fig
 
