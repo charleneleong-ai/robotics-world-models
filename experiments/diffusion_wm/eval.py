@@ -344,31 +344,47 @@ def log_media(
     step_metrics: dict[str, float],
     rollout_metrics: dict[str, float],
     tdmpc2_metrics: dict[str, float],
+    val_split: float = 0.05,
 ):
-    """Save plotly charts (HTML) and log to wandb when available."""
+    """Save per-split (train/val) plotly charts to HTML and log to wandb when available.
+
+    Split is contiguous (last ``val_split`` of the dataset is val) so rollout windows
+    are real episodes — a random split would scatter transitions and break contiguity.
+    """
     try:
         import wandb
     except ImportError:
         wandb = None  # type: ignore[assignment]
+    from torch.utils.data import Subset
     from experiments.diffusion_wm.viz import denoising_grid, rollout_trajectories
 
-    # Fixed media batch from val split (same seed so deterministic)
-    rng = torch.Generator().manual_seed(7)
-    idx = torch.randint(0, len(dataset), (4,), generator=rng)
-    items = [dataset[i.item()] for i in idx]
-    obs = torch.stack([it["obs"] for it in items]).to(device)
-    action = torch.stack([it["action"] for it in items]).to(device)
-    next_obs = torch.stack([it["next_obs"] for it in items]).to(device)
-
-    fig_grid = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
-    fig_rollout = rollout_trajectories(model, dataset, device, num_episodes=3, horizon=20)
+    n_val = max(1, int(len(dataset) * val_split))
+    train_ds = Subset(dataset, range(len(dataset) - n_val))
+    val_ds = Subset(dataset, range(len(dataset) - n_val, len(dataset)))
+    splits = {"train": train_ds, "val": val_ds}
 
     out.mkdir(parents=True, exist_ok=True)
-    grid_html = out / "denoising_grid.html"
-    rollout_html = out / "rollout_trajectories.html"
-    fig_grid.write_html(grid_html)
-    fig_rollout.write_html(rollout_html)
-    print(f"Saved media: {grid_html}, {rollout_html}")
+    logged: dict[str, wandb.Plotly] = {}
+    for split_name, split_ds in splits.items():
+        # Fixed per-split media batch (deterministic seed)
+        rng = torch.Generator().manual_seed(7)
+        idx = torch.randint(0, len(split_ds), (4,), generator=rng)
+        items = [split_ds[i.item()] for i in idx]
+        obs = torch.stack([it["obs"] for it in items]).to(device)
+        action = torch.stack([it["action"] for it in items]).to(device)
+        next_obs = torch.stack([it["next_obs"] for it in items]).to(device)
+
+        fig_grid = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
+        fig_rollout = rollout_trajectories(model, split_ds, device, num_episodes=3, horizon=20)
+
+        grid_html = out / f"{split_name}_denoising_grid.html"
+        rollout_html = out / f"{split_name}_rollout_trajectories.html"
+        fig_grid.write_html(grid_html)
+        fig_rollout.write_html(rollout_html)
+        print(f"Saved media: {grid_html}, {rollout_html}")
+
+        logged[f"media/{split_name}_denoising_grid"] = wandb.Plotly(fig_grid)
+        logged[f"media/{split_name}_rollout_trajectories"] = wandb.Plotly(fig_rollout)
 
     if wandb is None:
         print("wandb not installed — media logged as HTML only")
@@ -385,8 +401,7 @@ def log_media(
     )
     run_id = wandb.run.id if wandb.run else "?"
     wandb.log({
-        "media/denoising_grid": wandb.Plotly(fig_grid),
-        "media/rollout_trajectories": wandb.Plotly(fig_rollout),
+        **logged,
         **{f"metrics/{k}": v for k, v in step_metrics.items()},
         **{f"metrics/{k}": v for k, v in rollout_metrics.items()},
         **{f"metrics/{k}": v for k, v in tdmpc2_metrics.items()},
