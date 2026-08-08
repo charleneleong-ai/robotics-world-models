@@ -27,20 +27,20 @@ from experiments.diffusion_wm.dataset import create_dataloader
 from experiments.diffusion_wm.model import DiffusionDynamics, MLPDenoiser
 
 _MEDIA_POOL_SIZE = 32
-_media_obs: torch.Tensor | None = None
-_media_action: torch.Tensor | None = None
-_media_next: torch.Tensor | None = None
+_media_pools: dict[str, dict[str, torch.Tensor]] = {}
 
 
-def _cache_media_pool(val_loader, device: torch.device):
-    """Cache a fixed media batch (deterministic first-val-batch slice)."""
-    global _media_obs, _media_action, _media_next
-    if _media_obs is not None:
-        return
-    batch = next(iter(val_loader))
-    _media_obs = batch["obs"][:_MEDIA_POOL_SIZE].to(device)
-    _media_action = batch["action"][:_MEDIA_POOL_SIZE].to(device)
-    _media_next = batch["next_obs"][:_MEDIA_POOL_SIZE].to(device)
+def _cache_media_pool(train_loader, val_loader, device: torch.device):
+    """Cache fixed media batches (deterministic first-batch slice) per split."""
+    for split, loader in (("train", train_loader), ("val", val_loader)):
+        if split in _media_pools:
+            continue
+        batch = next(iter(loader))
+        _media_pools[split] = {
+            "obs": batch["obs"][:_MEDIA_POOL_SIZE].to(device),
+            "action": batch["action"][:_MEDIA_POOL_SIZE].to(device),
+            "next_obs": batch["next_obs"][:_MEDIA_POOL_SIZE].to(device),
+        }
 
 
 @dataclass
@@ -165,7 +165,7 @@ def setup_training(cfg, device):
     scheduler = WarmupCosineLR(optimizer, cfg.warmup_steps, cfg.num_steps)
 
     train_loader, val_loader = create_dataloader(cfg.data_dir, batch_size=cfg.batch_size, num_workers=cfg.num_workers, val_split=cfg.val_split, seed=cfg.seed)
-    _cache_media_pool(val_loader, device)
+    _cache_media_pool(train_loader, val_loader, device)
     ckpt_dir = cfg.checkpoint_dir / cfg.run_id
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
@@ -262,18 +262,19 @@ def train(cfg: Config):
 
 @torch.no_grad()
 def log_denoising_grid(model: DiffusionDynamics, step: int):
-    """Log denoising-progress grid to wandb from a small fixed batch."""
-    if _media_obs is None:
+    """Log denoising-progress grids to wandb (train + val fixed batches)."""
+    if not _media_pools:
         return
     model.eval()
     rng = torch.Generator().manual_seed(7)
-    idx = torch.randint(0, _media_obs.size(0), (4,), generator=rng)
-    obs = _media_obs[idx]
-    action = _media_action[idx]
-    next_obs = _media_next[idx]
     from experiments.diffusion_wm.viz import denoising_grid  # local import: keeps GPU module import light at top
-    fig = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
-    wandb.log({"media/denoising_grid": wandb.Plotly(fig)}, step=step)
+    for split, pool in _media_pools.items():
+        idx = torch.randint(0, pool["obs"].size(0), (4,), generator=rng)
+        obs = pool["obs"][idx]
+        action = pool["action"][idx]
+        next_obs = pool["next_obs"][idx]
+        fig = denoising_grid(model, obs, action, next_obs, num_steps=model.timesteps)
+        wandb.log({f"media/{split}_denoising_grid": wandb.Plotly(fig)}, step=step)
     model.train()
 
 

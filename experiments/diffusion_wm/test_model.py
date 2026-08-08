@@ -5,15 +5,20 @@ Run with:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
+from torch.utils.data import DataLoader, random_split
 
+from experiments.diffusion_wm.dataset import TransitionDataset
 from experiments.diffusion_wm.model import (
     DiffusionDynamics,
     MLPDenoiser,
     cosine_beta_schedule,
 )
+from experiments.diffusion_wm.train import _cache_media_pool, _media_pools
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +187,49 @@ class TestTrainingSmoke:
 # ---------------------------------------------------------------------------
 # Denoising progress (media)
 # ---------------------------------------------------------------------------
+
+class TestMediaPool:
+    @pytest.fixture
+    def shard_dir(self, tmp_path) -> Path:
+        rng = np.random.default_rng(0)
+        shard_dir = tmp_path / "shards"
+        shard_dir.mkdir()
+        np.savez_compressed(
+            shard_dir / "shard_00000.npz",
+            obs=rng.normal(size=(256, 4)),
+            action=rng.normal(size=(256, 2)),
+            next_obs=rng.normal(size=(256, 4)),
+        )
+        return shard_dir
+
+    @pytest.fixture(autouse=True)
+    def _reset_pool(self):
+        _media_pools.clear()
+        yield
+        _media_pools.clear()
+
+    def _loaders(self, shard_dir):
+        ds = TransitionDataset(shard_dir)
+        train_ds, val_ds = random_split(ds, [len(ds) - len(ds) // 5, len(ds) // 5])
+        return (
+            DataLoader(train_ds, batch_size=32),
+            DataLoader(val_ds, batch_size=32),
+        )
+
+    def test_caches_both_splits(self, shard_dir):
+        train_loader, val_loader = self._loaders(shard_dir)
+        _cache_media_pool(train_loader, val_loader, torch.device("cpu"))
+        assert set(_media_pools) == {"train", "val"}
+        for pool in _media_pools.values():
+            assert pool["obs"].size(0) == 32
+
+    def test_caching_is_idempotent(self, shard_dir):
+        train_loader, val_loader = self._loaders(shard_dir)
+        _cache_media_pool(train_loader, val_loader, torch.device("cpu"))
+        train_obs = _media_pools["train"]["obs"].clone()
+        _cache_media_pool(train_loader, val_loader, torch.device("cpu"))
+        assert torch.equal(_media_pools["train"]["obs"], train_obs)
+
 
 class TestDenoiseWithProgress:
     def test_milestone_shapes(self, model, batch):
