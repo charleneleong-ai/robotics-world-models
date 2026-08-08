@@ -131,6 +131,7 @@ def main(
     inference_steps: int = typer.Option(100, help="Sampling steps (eval)"),
     resume: str | None = typer.Option(None, help="Checkpoint path to resume from"),
     project: str = typer.Option("wm-manip"),
+    eval_interval: int = typer.Option(5000, help="Steps between val loss + media logging"),
     device: str = typer.Option("cuda"),
 ):
     cfg = Config(
@@ -145,6 +146,7 @@ def main(
         inference_steps=inference_steps,
         resume=resume,
         project=project,
+        eval_interval=eval_interval,
     )
     train(cfg)
 
