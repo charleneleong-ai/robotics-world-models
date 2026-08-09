@@ -556,7 +556,8 @@ def validate(
         next_obs = batch["next_obs"].to(device, non_blocking=True)
 
         # Generate predicted next
-        predicted_next = obs + action * 0.1 + torch.randn_like(obs) * 0.01
+        action_effect = action.mean(dim=-1, keepdim=True).expand_as(obs) * 0.1
+        predicted_next = obs + action_effect + torch.randn_like(obs) * 0.01
 
         # Ground truth
         physics_consistency = torch.ones(obs.shape[0], 1, device=device) * 0.8
