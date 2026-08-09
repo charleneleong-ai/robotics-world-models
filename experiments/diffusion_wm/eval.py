@@ -403,7 +403,7 @@ def log_media(
 
     wandb.init(
         project="wm-manip", entity="chaleong",
-        name=f"eval-{out.name}",
+        **({"name": f"eval-{out.name}"} if not resume_kwargs else {}),
         config={
             "1step_mse": step_metrics["1step_mse"],
             "1step_mae": step_metrics["1step_mae"],
