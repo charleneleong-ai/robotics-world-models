@@ -30,6 +30,7 @@ Trust-aware learning, error recovery, and easier capability acquisition in simul
 2. **First causal error diagnosis**: Mechanism-specific failure attribution
 3. **First trust-aware candidate selection**: K candidates, select by trust score
 4. **First causal recovery strategies**: Contact, visual, dynamic mechanisms
+5. **Continual learning via verification**: Trust scoring enables learning new capabilities while preserving old knowledge
 
 ## Benchmarks
 
