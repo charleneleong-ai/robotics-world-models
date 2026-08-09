@@ -95,3 +95,35 @@ echo "pull-loop -> $L"
 [tasks.daemons-stop]
 description = "Stop the pr-updater + pull-loop daemons"
 run = "pkill -f autoresearch-pr-updater; pkill -f 'rsync -az .*robotics_world_models'; echo stopped"
+
+# ── causal trust world model learning tasks ─────────────────────────────────
+# Train causal trust components:
+#   mise run ctwm-train data_dir=data/causal_trust/peginsertion run_id=causal-trust-v1
+[tasks.ctwm-train]
+description = "Train causal trust world model components"
+run = """
+ssh "$HOST" "cd ~/$A100_DIR && \\
+  ~/miniconda3/envs/wm/bin/python -u -m experiments.causal_trust_world_model_learning.train \\
+  --data-dir {{arg(name='data_dir', default='data/causal_trust/peginsertion')}} \\
+  --run-id {{arg(name='run_id', default='causal-trust-v1')}} \\
+  --num-steps {{arg(name='num_steps', default=100000)}} \\
+  --batch-size 256 \\
+  --trust-threshold 0.7
+"
+"""
+
+[tasks.ctwm-eval]
+description = "Evaluate causal trust world model components"
+run = """
+ssh "$HOST" "cd ~/$A100_DIR && \\
+  ~/miniconda3/envs/wm/bin/python -u -m experiments.causal_trust_world_model_learning.eval \\
+  --checkpoint {{arg(name='checkpoint', default='checkpoints/causal_trust_wm/causal-trust-v1/best.pt')}} \\
+  --data-dir {{arg(name='data_dir', default='data/causal_trust/peginsertion')}} \\
+  --output-dir {{arg(name='output_dir', default='results/causal_trust/peginsertion')}} \\
+  --batch-size 256
+"
+"""
+
+[tasks.ctwm-test]
+description = "Run causal trust world model unit tests (local)"
+run = ".venv/bin/python -m pytest experiments/causal_trust_world_model_learning/test_model.py -v"
