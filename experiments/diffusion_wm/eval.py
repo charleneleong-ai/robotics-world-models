@@ -18,6 +18,7 @@ import json
 import os
 import warnings
 from pathlib import Path
+from typing import Any
 
 os.environ.setdefault("MUJOCO_GL", "egl")
 warnings.filterwarnings("ignore")
@@ -365,7 +366,7 @@ def log_media(
     splits = {"train": train_ds, "val": val_ds}
 
     out.mkdir(parents=True, exist_ok=True)
-    logged: dict[str, wandb.Plotly] = {}
+    logged: dict[str, Any] = {}
     for split_name, split_ds in splits.items():
         # Fixed per-split media batch (deterministic seed)
         rng = torch.Generator().manual_seed(7)
@@ -384,8 +385,9 @@ def log_media(
         fig_rollout.write_html(rollout_html)
         print(f"Saved media: {grid_html}, {rollout_html}")
 
-        logged[f"media/{split_name}_denoising_grid"] = wandb.Plotly(fig_grid)
-        logged[f"media/{split_name}_rollout_trajectories"] = wandb.Plotly(fig_rollout)
+        if wandb is not None:
+            logged[f"media/{split_name}_denoising_grid"] = wandb.Plotly(fig_grid)
+            logged[f"media/{split_name}_rollout_trajectories"] = wandb.Plotly(fig_rollout)
 
     if wandb is None:
         print("wandb not installed — media logged as HTML only")
@@ -398,7 +400,7 @@ def log_media(
     if run_id_file and run_id_file.exists():
         resume_kwargs = {"id": run_id_file.read_text().strip(), "resume": "must"}
         print(f"Resuming training run {resume_kwargs['id']} for eval media/metrics")
-    elif run_id_file and checkpoint:
+    elif run_id_file:
         print(f"WARNING: no {run_id_file} found — logging to a new run instead")
 
     wandb.init(
