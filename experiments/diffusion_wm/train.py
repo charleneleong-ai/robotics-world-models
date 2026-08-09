@@ -185,6 +185,7 @@ def setup_training(cfg, device):
         "lr": cfg.lr, "weight_decay": cfg.weight_decay, "num_steps": cfg.num_steps,
         "data_dir": str(cfg.data_dir),
     })
+    (ckpt_dir / "wandb_run_id.txt").write_text(wandb.run.id)
 
     return model, optimizer, scheduler, train_loader, val_loader, start_step, ckpt_dir
 

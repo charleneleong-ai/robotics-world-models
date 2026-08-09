@@ -333,7 +333,7 @@ def main(
     out_path.write_text(json.dumps(results, indent=2))
     print(f"\nResults saved to {out_path}")
 
-    log_media(model, dataset, device, out, step_metrics, rollout_metrics, tdmpc2_metrics)
+    log_media(model, dataset, device, out, step_metrics, rollout_metrics, tdmpc2_metrics, checkpoint=checkpoint)
 
 
 def log_media(
@@ -345,6 +345,7 @@ def log_media(
     rollout_metrics: dict[str, float],
     tdmpc2_metrics: dict[str, float],
     val_split: float = 0.05,
+    checkpoint: Path | None = None,
 ):
     """Save per-split (train/val) plotly charts to HTML and log to wandb when available.
 
@@ -389,6 +390,17 @@ def log_media(
     if wandb is None:
         print("wandb not installed — media logged as HTML only")
         return
+
+    # Resume the training run when the checkpoint dir carries its wandb id,
+    # so train + eval live in one run instead of two.
+    run_id_file = checkpoint.parent / "wandb_run_id.txt" if checkpoint else None
+    resume_kwargs: dict[str, str] = {}
+    if run_id_file and run_id_file.exists():
+        resume_kwargs = {"id": run_id_file.read_text().strip(), "resume": "must"}
+        print(f"Resuming training run {resume_kwargs['id']} for eval media/metrics")
+    elif run_id_file and checkpoint:
+        print(f"WARNING: no {run_id_file} found — logging to a new run instead")
+
     wandb.init(
         project="wm-manip", entity="chaleong",
         name=f"eval-{out.name}",
@@ -398,6 +410,7 @@ def log_media(
             **{k: v for k, v in rollout_metrics.items() if "mse" in k},
             **{k: v for k, v in tdmpc2_metrics.items() if "mse" in k},
         },
+        **resume_kwargs,
     )
     run_id = wandb.run.id if wandb.run else "?"
     wandb.log({
