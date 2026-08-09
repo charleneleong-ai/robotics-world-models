@@ -420,7 +420,9 @@ def train(cfg: Config):
 
         # Generate "predicted next" (simulate world model prediction)
         # In practice, this would come from the actual world model
-        predicted_next = obs + action * 0.1 + torch.randn_like(obs) * 0.01
+        # Use mean of action to affect all obs dimensions
+        action_effect = action.mean(dim=-1, keepdim=True).expand_as(obs) * 0.1
+        predicted_next = obs + action_effect + torch.randn_like(obs) * 0.01
 
         # Generate ground truth trust signals (simplified)
         # In practice, these would come from actual verification
