@@ -1,0 +1,27 @@
+--- /home/ubuntu/opensplat3d/opensplat3d/eval/eval_lerf_mask.py.bak	2026-08-10 18:17:07.797346355 +0000
++++ /home/ubuntu/opensplat3d/opensplat3d/eval/eval_lerf_mask.py	2026-08-10 18:17:07.819346196 +0000
+@@ -369,6 +369,7 @@
+     model_paths: list[Path],
+     ioa_threshold: float = 0.7,
+     mask_threshold: float = 0.2,
++    save_pred_masks_dir: Path | None = None,
+ ):
+     scene_model_configs = get_scene_model_configs(model_paths)
+     with warnings.catch_warnings(action="ignore"):
+@@ -426,6 +427,16 @@
+                 f"Expected 4D array (B, P, H, W), got {pred_masks.ndim}D"
+             )
+ 
++            # Persist predicted masks as PNGs (one per view × class)
++            if save_pred_masks_dir is not None:
++                save_pred_masks_dir.mkdir(parents=True, exist_ok=True)
++                for vi in range(pred_masks.shape[0]):
++                    for pi_idx, prompt in enumerate(query_prompts):
++                        mask_bin = (pred_masks[vi, pi_idx] > 0).astype(np.uint8) * 255
++                        fname = save_pred_masks_dir / f"view{vi}_{prompt.replace(' ', '_')}.png"
++                        iio.imwrite(fname, mask_bin)
++                print(f"  Saved {pred_masks.shape[0] * len(query_prompts)} pred masks to {save_pred_masks_dir}")
++
+             metrics = eval_lerf_mask_metrics(test_image_dirs, query_prompts, pred_masks)
+             yield model_path, config, metrics
+ 
