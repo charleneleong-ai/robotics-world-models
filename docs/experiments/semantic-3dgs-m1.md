@@ -15,6 +15,12 @@
 
 Bar 2 reproduces OpenSplat3D's published `figurines` number within **0.15 points** (per-class mIoU 88–94: red/green apple 94, rubber duck / toy chairs 93, camera 89, porcelain hand 88).
 
+Per-class diagnostic (mIoU vs mBIoU, both vs published aggregate):
+
+![figurines per-class mIoU/mBIoU](https://github.com/charleneleong-ai/robotics-world-models/blob/docs/semantic-3dgs-m1-results/docs/experiments/semantic-3dgs-m1-figurines.png?raw=true)
+
+The weak tails are the diagnosis: **camera** (mIoU 89.0, but mBIoU drops to **81.7**) and **porcelain hand** (88.0/87.9) drag the aggregate down, while the two toy chairs are mBIoU-*strong* (93.1/92.0 vs their mIoU 93.2/93.2) — small-object/occlusion classes lose mask overlap the most on held-out views.
+
 ## Method
 
 The spec's Milestone-1 pipeline, both halves on the A100 (`pi-a100-80gb`), each in its own isolated env:
