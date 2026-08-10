@@ -12,7 +12,6 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 os.environ.setdefault("WANDB_SILENT", "true")
 
@@ -20,10 +19,11 @@ import numpy as np
 import torch
 import typer
 import wandb
+from torch import nn
 
 from experiments.causal_trust_world_model_learning.train import (
-    TrustScoringModel,
     CausalAttributionModel,
+    TrustScoringModel,
     create_dataloader,
 )
 
@@ -71,7 +71,7 @@ def main(
         batch_size=batch_size,
         device=device,
     )
-    metrics = evaluate(cfg)
+    evaluate(cfg)
     print(f"\nEvaluation complete. Metrics saved to {output_dir / 'metrics.json'}")
 
 

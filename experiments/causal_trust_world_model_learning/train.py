@@ -19,17 +19,9 @@ os.environ.setdefault("WANDB_SILENT", "true")
 
 import numpy as np
 import torch
-import torch.nn as nn
 import typer
 import wandb
-
-from experiments.causal_trust_world_model_learning.world_model_verifier import (
-    WorldModelVerifier,
-)
-from experiments.causal_trust_world_model_learning.trust_scoring import TrustScorer
-from experiments.causal_trust_world_model_learning.causal_attribution import (
-    CausalAttributionEngine,
-)
+from torch import nn
 
 
 @dataclass
@@ -382,6 +374,112 @@ def save_checkpoint(
     )
 
 
+def _simulated_next(obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
+    action_effect = action.mean(dim=-1, keepdim=True).expand_as(obs) * 0.1
+    return obs + action_effect + torch.randn_like(obs) * 0.01
+
+
+def _ground_truth_signals(
+    obs: torch.Tensor, device: torch.device
+) -> tuple[torch.Tensor, torch.Tensor]:
+    batch_size = obs.shape[0]
+    trust = torch.cat(
+        [
+            torch.full((batch_size, 1), 0.8, device=device),
+            torch.full((batch_size, 1), 0.9, device=device),
+            torch.full((batch_size, 1), 0.05, device=device),
+            torch.full((batch_size, 1), 0.85, device=device),
+            torch.full((batch_size, 1), 0.8, device=device),
+        ],
+        dim=-1,
+    )
+    causal = torch.zeros(batch_size, 3, device=device)
+    causal[:, 0] = 0.6
+    causal[:, 1] = 0.2
+    causal[:, 2] = 0.2
+    return trust, causal
+
+
+def _log_training_step(
+    step: int,
+    cfg: Config,
+    start_step: int,
+    start_time: float,
+    scheduler: Any,
+    trust_loss: torch.Tensor,
+    causal_loss: torch.Tensor,
+    total_loss: torch.Tensor,
+    grad_norm: float | torch.Tensor,
+) -> None:
+    if step % cfg.log_interval != 0:
+        return
+    elapsed = time.monotonic() - start_time
+    steps_per_sec = (step - start_step + 1) / max(1, elapsed)
+    lr_now = scheduler.current_lr
+    print(
+        f"step {step:07d}/{cfg.num_steps} | "
+        f"trust_loss={trust_loss.item():.6f} | "
+        f"causal_loss={causal_loss.item():.6f} | "
+        f"lr={lr_now:.2e} | "
+        f"{steps_per_sec:.0f} steps/s"
+    )
+    wandb.log(
+        {
+            "train/trust_loss": trust_loss.item(),
+            "train/causal_loss": causal_loss.item(),
+            "train/total_loss": total_loss.item(),
+            "train/grad_norm": (
+                grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm
+            ),
+            "train/lr": lr_now,
+            "train/steps_per_sec": steps_per_sec,
+        },
+        step=step,
+    )
+
+
+def _maybe_checkpoint(
+    step: int,
+    cfg: Config,
+    best_val_loss: float,
+    val_loader: torch.utils.data.DataLoader | None,
+    trust_model: nn.Module,
+    causal_model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler: Any,
+    device: torch.device,
+    ckpt_dir: Path,
+) -> float:
+    if val_loader is not None and step > 0 and step % cfg.eval_interval == 0:
+        val_loss = validate(trust_model, causal_model, val_loader, device)
+        wandb.log({"val/loss": val_loss}, step=step)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            save_checkpoint(
+                ckpt_dir / "best.pt",
+                step,
+                trust_model,
+                causal_model,
+                optimizer,
+                scheduler,
+                cfg,
+                val_loss=val_loss,
+            )
+            print(f"  best model saved (val_loss={val_loss:.6f})")
+    if step > 0 and step % cfg.save_interval == 0:
+        save_checkpoint(
+            ckpt_dir / f"step_{step:07d}.pt",
+            step,
+            trust_model,
+            causal_model,
+            optimizer,
+            scheduler,
+            cfg,
+        )
+        print(f"  checkpoint saved (step {step})")
+    return best_val_loss
+
+
 def train(cfg: Config):
     torch.manual_seed(cfg.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -418,31 +516,8 @@ def train(cfg: Config):
         action = batch["action"].to(device, non_blocking=True)
         next_obs = batch["next_obs"].to(device, non_blocking=True)
 
-        # Generate "predicted next" (simulate world model prediction)
-        # In practice, this would come from the actual world model
-        # Use mean of action to affect all obs dimensions
-        action_effect = action.mean(dim=-1, keepdim=True).expand_as(obs) * 0.1
-        predicted_next = obs + action_effect + torch.randn_like(obs) * 0.01
-
-        # Generate ground truth trust signals (simplified)
-        # In practice, these would come from actual verification
-        physics_consistency = torch.ones(obs.shape[0], 1, device=device) * 0.8
-        ood_score = torch.ones(obs.shape[0], 1, device=device) * 0.9
-        calibration_error = torch.ones(obs.shape[0], 1, device=device) * 0.05
-        confidence = torch.ones(obs.shape[0], 1, device=device) * 0.85
-        historical = torch.ones(obs.shape[0], 1, device=device) * 0.8
-
-        ground_truth_trust = torch.cat(
-            [physics_consistency, ood_score, calibration_error, confidence, historical],
-            dim=-1,
-        )
-
-        # Generate ground truth causal attribution (simplified)
-        # In practice, these would come from actual failure analysis
-        ground_truth_causal = torch.zeros(obs.shape[0], 3, device=device)
-        ground_truth_causal[:, 0] = 0.6  # contact
-        ground_truth_causal[:, 1] = 0.2  # visual
-        ground_truth_causal[:, 2] = 0.2  # dynamic
+        predicted_next = _simulated_next(obs, action)
+        ground_truth_trust, ground_truth_causal = _ground_truth_signals(obs, device)
 
         # Forward pass
         pred_trust = trust_model(obs, action, predicted_next)
@@ -451,8 +526,6 @@ def train(cfg: Config):
         # Compute losses
         trust_loss = trust_loss_fn(pred_trust, ground_truth_trust)
         causal_loss = causal_loss_fn(pred_causal, ground_truth_causal)
-
-        # Combined loss
         loss = trust_loss + causal_loss
 
         optimizer.zero_grad()
@@ -464,62 +537,29 @@ def train(cfg: Config):
         optimizer.step()
         scheduler.step()
 
-        if step % cfg.log_interval == 0:
-            elapsed = time.monotonic() - start_time
-            steps_per_sec = (step - start_step + 1) / max(1, elapsed)
-            lr_now = scheduler.current_lr
-            print(
-                f"step {step:07d}/{cfg.num_steps} | "
-                f"trust_loss={trust_loss.item():.6f} | "
-                f"causal_loss={causal_loss.item():.6f} | "
-                f"lr={lr_now:.2e} | "
-                f"{steps_per_sec:.0f} steps/s"
-            )
-            wandb.log(
-                {
-                    "train/trust_loss": trust_loss.item(),
-                    "train/causal_loss": causal_loss.item(),
-                    "train/total_loss": loss.item(),
-                    "train/grad_norm": (
-                        grad_norm.item()
-                        if isinstance(grad_norm, torch.Tensor)
-                        else grad_norm
-                    ),
-                    "train/lr": lr_now,
-                    "train/steps_per_sec": steps_per_sec,
-                },
-                step=step,
-            )
-
-        if val_loader is not None and step > 0 and step % cfg.eval_interval == 0:
-            val_loss = validate(trust_model, causal_model, val_loader, device)
-            wandb.log({"val/loss": val_loss}, step=step)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                save_checkpoint(
-                    ckpt_dir / "best.pt",
-                    step,
-                    trust_model,
-                    causal_model,
-                    optimizer,
-                    scheduler,
-                    cfg,
-                    val_loss=val_loss,
-                )
-                print(f"  best model saved (val_loss={val_loss:.6f})")
-
-        if step > 0 and step % cfg.save_interval == 0:
-            save_checkpoint(
-                ckpt_dir / f"step_{step:07d}.pt",
-                step,
-                trust_model,
-                causal_model,
-                optimizer,
-                scheduler,
-                cfg,
-            )
-            print(f"  checkpoint saved (step {step})")
-
+        _log_training_step(
+            step,
+            cfg,
+            start_step,
+            start_time,
+            scheduler,
+            trust_loss,
+            causal_loss,
+            loss,
+            grad_norm,
+        )
+        best_val_loss = _maybe_checkpoint(
+            step,
+            cfg,
+            best_val_loss,
+            val_loader,
+            trust_model,
+            causal_model,
+            optimizer,
+            scheduler,
+            device,
+            ckpt_dir,
+        )
         step += 1
 
     save_checkpoint(

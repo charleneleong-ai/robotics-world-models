@@ -15,10 +15,10 @@ Usage:
 """
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
 from dataclasses import dataclass
 from typing import Any
+
+import torch
 
 
 @dataclass
@@ -129,7 +129,7 @@ class ContinualLearner:
                 action = self.vla.predict(obs)
             
             # Step environment
-            next_obs, reward, done, info = environment.step(action)
+            next_obs, reward, done, _ = environment.step(action)
             
             # Store data
             episode_data["observations"].append(obs)

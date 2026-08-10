@@ -17,11 +17,10 @@ Usage:
 """
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+
+import torch
 
 
 class FailureMechanism(Enum):

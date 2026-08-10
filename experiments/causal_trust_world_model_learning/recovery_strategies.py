@@ -13,9 +13,9 @@ Usage:
 """
 from __future__ import annotations
 
-import torch
 from dataclasses import dataclass
-from typing import Any
+
+import torch
 
 from .causal_attribution import CausalAttribution, FailureMechanism
 
