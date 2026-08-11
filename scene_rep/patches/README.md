@@ -19,6 +19,14 @@ Usage in `__main__`:
 save_pred_masks_dir=output_path / "pred_masks"
 ```
 
+**Prerequisites:** The nerfstudio env needs groundingdino, segment-anything, and compiled CUDA extensions (fused-ssim, simple-knn, diff-gaussian-rasterization). Install via:
+```bash
+conda activate nerfstudio
+pip install -e ".[groundingdino]"
+```
+
+The eval script was patched and wired on 2026-08-10. Ready to run once deps are installed.
+
 ## W&B training (built-in)
 
 Nerfstudio supports W&B logging natively:
