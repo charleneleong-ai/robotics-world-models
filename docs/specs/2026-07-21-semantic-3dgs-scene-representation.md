@@ -1,6 +1,6 @@
 # Semantic 3D Gaussian Splatting — static scene representation + eval harness (Milestone 1)
 
-**Status:** 📋 SPEC (not yet executed). **Date:** 2026-07-21.
+**Status:** ✅ EXECUTED (2026-07-24) — **GO on both gate bars.** Bar 1: `garden` reconstruction hit PSNR 27.15 / SSIM 0.853 / LPIPS 0.103 (held-out). Bar 2: SAM→3DGS lift reproduced OpenSplat3D's published LERF-Mask `figurines` number (mIoU 92.15 vs 92.3) within 0.15 pt. Dataset swapped ScanNet++→LERF-Mask (access gate) so the bar became a reproduction target; full result + honest deviations in [`semantic-3dgs-m1.md`](../experiments/semantic-3dgs-m1.md). **Date:** 2026-07-21 → executed 2026-07-24.
 
 > **One-line:** reconstruct one real scene as a 3D Gaussian field, lift SAM2 masks into a per-Gaussian instance field, and stand up the reusable `mIoU + PSNR/SSIM/LPIPS`-on-held-out-views eval harness — the smallest end-to-end slice that proves the differentiator (2D-segmentation expertise → 3D lift) with credible numbers. Substrate for the 4D (Milestone 2) and Gaussian-world-model (phase 3) extensions.
 
