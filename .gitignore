@@ -15,3 +15,8 @@ benchmarks/
 
 # daemon logs
 logs/
+
+# diffusion world model data + checkpoints
+data/
+checkpoints/
+eval_results/

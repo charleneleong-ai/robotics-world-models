@@ -1,0 +1,10 @@
+{
+  "experiment": 4,
+  "config_name": "sac",
+  "description": "sac PickCube-v1 state seed 5",
+  "notes": "",
+  "started_at": "2026-06-14T13:32:00.816441+00:00",
+  "wandb_name": "sac-pickcube-state-s5",
+  "seed": 5,
+  "method": "sac"
+}

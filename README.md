@@ -17,9 +17,12 @@ _8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task
 
 ## Status
 
-- ✅ **PPO floor** — 5 seeds × 10M steps on `PickCube-v1` (state obs). `success_once = 1.0` (PickCube is trivial for PPO — the real signal is contact-rich PegInsertionSide).
-- 🔄 **TD-MPC2 floor** — 5 seeds running through the sweep driver on the A100.
-- ⏭️ Next: SAC floor · DreamerV3 (own JAX env) · classical OMPL/MoveIt baseline · move to **PegInsertionSide**.
+- ✅ **PPO floor** — 5 seeds × 10M steps on `PickCube-v1` (state obs). `success_once = 1.0`.
+- ✅ **TD-MPC2 floor** — benchmarked with sweep infrastructure.
+- ✅ **DreamerV3 / SAC** — benchmarked on PickCube and PegInsertionSide.
+- ✅ **PlugCharger dense reward** — diagnosis of RSSM representation wall (diffusion WM is the fix).
+- 🔄 **Project #1.5 (video world model)** — action-conditioned video prediction via LingBot/Cosmos post-training.
+- 🔄 **Diffusion WM (Milestone 1)** — from-scratch action-conditioned diffusion dynamics model replacing TD-MPC2's black-box dynamics head. Code complete, pending A100 deploy.
 
 Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 + SAPIEN); logged to W&B project `wm-manip`.
 
@@ -31,9 +34,14 @@ Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 +
 | `project2-3d4d-scene-representation-SOTA.md` | SOTA survey for the 3D/4D Gaussian-splatting project |
 | `configs/schedules/*.yaml` | sweep recipes |
 | `experiments/autoresearch.py` | **SweepRunner driver** — schedule-driven, GPU-gated, resumable, hang-triaged |
+| `experiments/diffusion_wm/` | From-scratch action-conditioned diffusion dynamics model |
+| `experiments/diffusion_wm/model.py` | DDPM with MLPDenoiser (FiLM conditioning, cosine schedule) |
+| `experiments/diffusion_wm/train.py` | Training loop with W&B, checkpointing, resume |
+| `experiments/diffusion_wm/eval.py` | 1-step MSE + multi-step rollout divergence vs TD-MPC2 |
 | `experiments/<tag>/<config>/results.jsonl` · `progress.png` | per-config results + chart |
 | `experiments/test_driver.py` | local (no-GPU) tests for the driver + plumbing |
 | `docs/experiments/<tag>/` | per-sweep writeups |
+| `docs/specs/2026-07-29-action-conditioned-diffusion-world-model.md` | Design spec for the diffusion WM expansion |
 
 `benchmarks/ManiSkill` (the baseline scripts) is cloned on the training box, not vendored here.
 

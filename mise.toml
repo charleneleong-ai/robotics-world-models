@@ -92,6 +92,53 @@ nohup bash -c 'while true; do rsync -az '"$HOST"':~/'"$A100_DIR"'/experiments/ e
 echo "pull-loop -> $L"
 """
 
+# ── diffusion world model tasks ─────────────────────────────────────────
+# Collect rollout data from a trained policy:
+#   mise run dwm-collect checkpoint=<ckpt> env_id=PegInsertionSide-v1 num_episodes=2000
+[tasks.dwm-collect]
+description = "Collect (obs,action,next_obs) shards from a trained policy"
+run = """
+ssh "$HOST" "cd ~/$A100_DIR && \\
+  ~/miniconda3/envs/wm/bin/python -m experiments.diffusion_wm.collect \\
+  --checkpoint {{arg(name='checkpoint', default='/workspace/ManiSkill/data/checkpoints/tdmpc2/peginsertion.pt')}} \\
+  --env-id {{arg(name='env_id', default='PegInsertionSide-v1')}} \\
+  --num-episodes {{arg(name='num_episodes', default=2000)}} \\
+  --out {{arg(name='out', default='data/diffusion_wm/peginsertion')}} \\
+  --num-envs 32
+"
+"""
+
+[tasks.dwm-train]
+description = "Train diffusion world model on collected data"
+run = """
+ssh "$HOST" "cd ~/$A100_DIR && \\
+  ~/miniconda3/envs/wm/bin/python -u -m experiments.diffusion_wm.train \\
+  --data-dir {{arg(name='data_dir', default='data/diffusion_wm/peginsertion')}} \\
+  --run-id {{arg(name='run_id', default='diffusion-wm-v1')}} \\
+  --num-steps {{arg(name='num_steps', default=500000)}} \\
+  --batch-size 4096 \\
+  --hidden-dim 512 \\
+  --num-blocks 6
+"
+"""
+
+[tasks.dwm-eval]
+description = "Evaluate trained diffusion world model"
+run = """
+ssh "$HOST" "cd ~/$A100_DIR && \\
+  ~/miniconda3/envs/wm/bin/python -u -m experiments.diffusion_wm.eval \\
+  --checkpoint {{arg(name='checkpoint', default='checkpoints/diffusion_wm/diffusion-wm-v1/best.pt')}} \\
+  --data-dir {{arg(name='data_dir', default='data/diffusion_wm/peginsertion')}} \\
+  --out {{arg(name='out', default='eval_results/peginsertion')}} \\
+  --num-eval-samples 2000 \\
+  --num-rollout-episodes 100
+"
+"""
+
+[tasks.dwm-test]
+description = "Run diffusion WM unit tests (local)"
+run = ".venv/bin/python -m pytest experiments/diffusion_wm/test_model.py -v"
+
 [tasks.daemons-stop]
 description = "Stop the pr-updater + pull-loop daemons"
 run = "pkill -f autoresearch-pr-updater; pkill -f 'rsync -az .*robotics_world_models'; echo stopped"

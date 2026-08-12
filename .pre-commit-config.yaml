@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--select, C901, PLR0915]
+        name: ruff-complexity
+        description: "Enforce function complexity (C901 max 10) and statement count (PLR0915 max 50)."
