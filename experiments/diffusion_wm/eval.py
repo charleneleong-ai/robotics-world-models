@@ -337,6 +337,28 @@ def main(
     log_media(model, dataset, device, out, step_metrics, rollout_metrics, tdmpc2_metrics, checkpoint=checkpoint)
 
 
+def _fig_to_video(fig, path: Path, fps: int = 4) -> Path | None:
+    """Render a Plotly figure as an MP4 video (one frame per subplot row)."""
+    try:
+        import imageio.v3 as iio
+    except ImportError:
+        print("imageio not installed — skipping video render")
+        return None
+    try:
+        img_bytes = fig.to_image(format="png", width=1000, height=200 * max(1, len(fig.data) // 2))
+        import numpy as np
+        from PIL import Image
+        import io
+        frame = np.array(Image.open(io.BytesIO(img_bytes)))
+        frames = np.stack([frame] * max(fps, 2))  # repeat for short video
+        iio.imwrite(str(path), fps=fps, loop=0)
+        print(f"Saved rollout video: {path}")
+        return path
+    except Exception as e:
+        print(f"Video render failed (kaleido may be missing): {e}")
+        return None
+
+
 def log_media(
     model: DiffusionDynamics,
     dataset: TransitionDataset,
@@ -385,9 +407,12 @@ def log_media(
         fig_rollout.write_html(rollout_html)
         print(f"Saved media: {grid_html}, {rollout_html}")
 
-        if wandb is not None:
-            logged[f"media/{split_name}_denoising_grid"] = wandb.Plotly(fig_grid)
-            logged[f"media/{split_name}_rollout_trajectories"] = wandb.Plotly(fig_rollout)
+    if wandb is not None:
+        logged[f"media/{split_name}_denoising_grid"] = wandb.Plotly(fig_grid)
+        logged[f"media/{split_name}_rollout_trajectories"] = wandb.Plotly(fig_rollout)
+        video_path = _fig_to_video(fig_rollout, out / f"{split_name}_rollout.mp4")
+        if video_path is not None:
+            logged[f"media/{split_name}_rollout_video"] = wandb.Video(str(video_path), fps=4)
 
     if wandb is None:
         print("wandb not installed — media logged as HTML only")

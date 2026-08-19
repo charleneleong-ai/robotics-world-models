@@ -372,6 +372,10 @@ def save_checkpoint(
         },
         path,
     )
+    if wandb.run is not None:
+        artifact = wandb.Artifact(f"ctwm-checkpoint-{wandb.run.id}", type="model")
+        artifact.add_file(str(path))
+        wandb.log_artifact(artifact)
 
 
 def _simulated_next(obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
