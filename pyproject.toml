@@ -1,3 +1,35 @@
+[project]
+name = "robotics-world-models"
+version = "0.1.0"
+description = "World models for robotic manipulation"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.1",
+    "torchvision>=0.28",
+    "numpy>=2.0",
+    "pillow>=12.0",
+    "matplotlib>=3.9",
+    "plotly>=6.0",
+    "rich>=14.0",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "einops>=0.8",
+    "sentry-sdk>=2.0",
+    "wandb>=0.17",
+    "autoresearch @ git+https://github.com/charleneleong-ai/autoresearch.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
 [tool.ruff.lint]
 select = ["C901", "PLR0915"]
 
@@ -5,7 +37,6 @@ select = ["C901", "PLR0915"]
 "__init__.py" = ["C901", "PLR0915"]
 "test_*.py" = ["C901", "PLR0915"]
 
-# Complexity gates (CLAUDE.md convention)
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
