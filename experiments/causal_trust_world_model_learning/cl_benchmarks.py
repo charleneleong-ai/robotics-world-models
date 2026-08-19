@@ -201,11 +201,12 @@ class RemapLabels:
 class SimpleCNN(nn.Module):
     """Simple CNN for MNIST/CIFAR-10."""
     
-    def __init__(self, input_size: int = 784, num_classes: int = 2):
+    def __init__(self, num_classes: int = 2, input_channels: int = 1):
         super().__init__()
+        self.input_channels = input_channels
         
         self.features = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
+            nn.Conv2d(input_channels, 32, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(32, 64, 3, padding=1),
@@ -213,15 +214,22 @@ class SimpleCNN(nn.Module):
             nn.MaxPool2d(2, 2),
         )
         
+        if input_channels == 1:
+            feat_size = 64 * 7 * 7
+        else:
+            feat_size = 64 * 8 * 8
+            
         self.classifier = nn.Sequential(
-            nn.Linear(64 * 7 * 7, 128),
+            nn.Linear(feat_size, 128),
             nn.ReLU(),
             nn.Linear(128, num_classes)
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.dim() == 3:
-            x = x.unsqueeze(1)  # Add channel dimension
+        if x.dim() == 4 and x.size(1) != self.input_channels:
+            x = x.permute(0, 3, 1, 2)
+        elif x.dim() == 3 and self.input_channels == 1:
+            x = x.unsqueeze(1)
         
         x = self.features(x)
         x = x.view(x.size(0), -1)
@@ -244,6 +252,8 @@ class SimpleMLP(nn.Module):
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() > 2:
+            x = x.view(x.size(0), -1)  # Flatten
         return self.network(x)
 
 
@@ -311,13 +321,13 @@ def run_benchmark(
     # Create benchmark
     if benchmark_name == 'split_mnist':
         train_loaders, test_loaders = create_split_mnist(num_tasks=num_tasks)
-        model = SimpleCNN(input_size=784, num_classes=2).to(device)
+        model = SimpleCNN(num_classes=2).to(device)
     elif benchmark_name == 'permuted_mnist':
         train_loaders, test_loaders = create_permuted_mnist(num_tasks=num_tasks)
         model = SimpleMLP(input_size=784, num_classes=10).to(device)
     elif benchmark_name == 'split_cifar10':
         train_loaders, test_loaders = create_split_cifar10(num_tasks=num_tasks)
-        model = SimpleCNN(input_size=784, num_classes=2).to(device)
+        model = SimpleCNN(num_classes=2).to(device)
     else:
         raise ValueError(f"Unknown benchmark: {benchmark_name}")
     

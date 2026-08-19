@@ -8,6 +8,7 @@ Implements standard CL methods:
 - Experience Replay
 """
 
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,9 +91,7 @@ class LwF:
         
     def consolidate(self):
         """Save model snapshot after task."""
-        # Create a copy of the model
-        prev_model = type(self.model)()
-        prev_model.load_state_dict(self.model.state_dict())
+        prev_model = copy.deepcopy(self.model)
         prev_model.eval()
         self.previous_models.append(prev_model)
         self.task_count += 1
@@ -232,7 +231,7 @@ class ExperienceReplay:
         combined_y = torch.cat(all_y)
         
         dataset = TensorDataset(combined_x, combined_y)
-        return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        return DataLoader(dataset, batch_size=32, shuffle=True)
 
 
 class TrustAwareCL:
@@ -269,9 +268,7 @@ class TrustAwareCL:
         trust_score = self.compute_trust_score(dataloader)
         
         if self.should_consolidate(trust_score):
-            # Create a copy of the model
-            prev_model = type(self.model)()
-            prev_model.load_state_dict(self.model.state_dict())
+            prev_model = copy.deepcopy(self.model)
             prev_model.eval()
             self.task_models.append(prev_model)
             self.task_trust_scores.append(trust_score)
@@ -317,30 +314,35 @@ def compute_cl_metrics(
         acc = sum(task_accuracies[i][t] for i in range(num_tasks)) / num_tasks
         avg_accuracy.append(acc)
     
-    # Backward Transfer (BWT)
+    # Backward Transfer (BWT) - how much accuracy on old tasks changed after learning new tasks
     bwt = []
     for t in range(1, T):
         bwt_t = 0
         for i in range(t):
-            bwt_t += task_accuracies[i][t] - task_accuracies[i][t]
-        bwt_t /= (T - 1)
+            # BWT for task i at time t = final_acc - acc_when_i_was_last_trained
+            bwt_t += task_accuracies[i][T-1] - task_accuracies[i][i]
+        bwt_t /= t
         bwt.append(bwt_t)
     
-    # Forward Transfer (FWT)
+    # Forward Transfer (FWT) - how much knowing old tasks helps learn new tasks
     fwt = []
     for t in range(1, T):
         fwt_t = 0
+        count = 0
         for i in range(t, num_tasks):
-            if t > 0:
+            # FWT for task i at time t = acc_on_i_at_time_t - acc_on_i_before_training
+            if t > 0 and t-1 < len(task_accuracies[i]):
                 fwt_t += task_accuracies[i][t] - task_accuracies[i][t-1]
-        fwt_t /= (T - 1)
+                count += 1
+        fwt_t /= max(count, 1)
         fwt.append(fwt_t)
     
-    # Forgetting Measure
+    # Forgetting Measure - max accuracy drop for each task
     forgetting = []
     for i in range(num_tasks):
-        max_acc = max(task_accuracies[i][:i+1])
-        forgetting.append(max_acc - task_accuracies[i][-1])
+        max_acc = max(task_accuracies[i][:i+1]) if i < len(task_accuracies[i]) else task_accuracies[i][0]
+        final_acc = task_accuracies[i][-1] if task_accuracies[i][-1] > 0 else task_accuracies[i][i]
+        forgetting.append(max_acc - final_acc)
     
     return {
         'average_accuracy': avg_accuracy,
