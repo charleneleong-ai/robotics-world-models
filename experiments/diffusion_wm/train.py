@@ -190,12 +190,16 @@ def setup_training(cfg, device):
     return model, optimizer, scheduler, train_loader, val_loader, start_step, ckpt_dir
 
 
-def save_checkpoint(path, step, model, optimizer, scheduler, cfg, val_loss=None):
+def save_checkpoint(path, step, model, optimizer, scheduler, cfg, val_loss=None, wandb_run=None):
     torch.save({
         "step": step, "model": model.state_dict(), "optimizer": optimizer.state_dict(),
         "scheduler": scheduler.state_dict(), "config": cfg.__dict__,
         **({"val_loss": val_loss} if val_loss is not None else {}),
     }, path)
+    if wandb_run is not None and wandb.run is not None:
+        artifact = wandb.Artifact(f"checkpoint-{wandb_run}", type="model")
+        artifact.add_file(str(path))
+        wandb.log_artifact(artifact)
 
 
 def train(cfg: Config):
@@ -246,17 +250,17 @@ def train(cfg: Config):
             wandb.log({"val/loss": val_loss}, step=step)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                save_checkpoint(ckpt_dir / "best.pt", step, model, optimizer, scheduler, cfg, val_loss=val_loss)
+                save_checkpoint(ckpt_dir / "best.pt", step, model, optimizer, scheduler, cfg, val_loss=val_loss, wandb_run=wandb.run.id)
                 print(f"  best model saved (val_loss={val_loss:.6f})")
             log_denoising_grid(model, step)
 
         if step > 0 and step % cfg.save_interval == 0:
-            save_checkpoint(ckpt_dir / f"step_{step:07d}.pt", step, model, optimizer, scheduler, cfg)
+            save_checkpoint(ckpt_dir / f"step_{step:07d}.pt", step, model, optimizer, scheduler, cfg, wandb_run=wandb.run.id)
             print(f"  checkpoint saved (step {step})")
 
         step += 1
 
-    save_checkpoint(ckpt_dir / "final.pt", step, model, optimizer, scheduler, cfg)
+    save_checkpoint(ckpt_dir / "final.pt", step, model, optimizer, scheduler, cfg, wandb_run=wandb.run.id)
     print(f"\nTraining complete. Final model: {ckpt_dir / 'final.pt'}")
     wandb.finish()
 
