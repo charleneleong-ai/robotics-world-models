@@ -1,161 +1,214 @@
-"""Multi-signal trust scoring for world model predictions.
+"""World Model Trust Scoring for Continual Learning.
 
-This module combines multiple signals into a unified trust score that quantifies 
-when to trust world model predictions.
-
-Usage:
-    # Initialize trust scorer
-    scorer = TrustScorer()
-    
-    # Compute trust score
-    trust_score = scorer.compute_trust_score(
-        physics_consistency=0.8,
-        ood_score=0.9,
-        calibration_error=0.05
-    )
+Trust = low prediction error + high model confidence.
+When trust is high → consolidate (protect knowledge).
+When trust is low → allow more plasticity (learn new patterns).
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass
-class TrustSignals:
-    """Container for trust signals."""
-    physics_consistency: float
-    ood_score: float
-    calibration_error: float
-    prediction_confidence: float
-    historical_accuracy: float
-
-
-@dataclass
-class TrustScore:
-    """Container for trust score and breakdown."""
-    overall: float
-    physics_component: float
-    ood_component: float
-    calibration_component: float
-    confidence_component: float
-    historical_component: float
-    is_trustworthy: bool
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Optional
+from collections import deque
+import numpy as np
 
 
 class TrustScorer:
-    """Multi-signal trust scorer for world model predictions.
-    
-    This module combines multiple signals into a unified trust score:
-    1. Physics consistency (energy, momentum, contact)
-    2. Out-of-distribution detection
-    3. Calibration error
-    4. Prediction confidence
-    5. Historical accuracy
+    """Computes trust scores based on world model prediction errors.
+
+    Trust is computed as:
+    1. Prediction error: MSE between predicted and actual next observation
+    2. Confidence: world model's own confidence estimate
+    3. Combined: trust = (1 - error_norm) * confidence
+
+    Uses exponential moving average for stability.
     """
-    
+
     def __init__(
         self,
-        physics_weight: float = 0.3,
-        ood_weight: float = 0.25,
-        calibration_weight: float = 0.2,
-        confidence_weight: float = 0.15,
-        historical_weight: float = 0.1,
-        trust_threshold: float = 0.7,
+        ema_alpha: float = 0.95,
+        error_window: int = 100,
+        trust_threshold: float = 0.5,
     ):
-        """Initialize trust scorer.
-        
-        Args:
-            physics_weight: Weight for physics consistency
-            ood_weight: Weight for OOD detection
-            calibration_weight: Weight for calibration
-            confidence_weight: Weight for prediction confidence
-            historical_weight: Weight for historical accuracy
-            trust_threshold: Minimum trust score to consider trustworthy
-        """
-        self.physics_weight = physics_weight
-        self.ood_weight = ood_weight
-        self.calibration_weight = calibration_weight
-        self.confidence_weight = confidence_weight
-        self.historical_weight = historical_weight
+        self.ema_alpha = ema_alpha
+        self.error_window = error_window
         self.trust_threshold = trust_threshold
-        
-        # Historical tracking
-        self.historical_accuracy = 0.5  # Start with neutral
-        self.accuracy_history: list[float] = []
-    
-    def compute_trust_score(
+
+        # Per-task error tracking
+        self.task_errors: dict[int, deque] = {}
+        self.task_ema_error: dict[int, float] = {}
+        self.task_ema_confidence: dict[int, float] = {}
+
+    def compute_trust(
         self,
-        physics_consistency: float,
-        ood_score: float,
-        calibration_error: float,
-        prediction_confidence: float = 1.0,
-    ) -> TrustScore:
-        """Compute trust score from signals.
-        
+        prediction_errors: torch.Tensor,
+        confidences: torch.Tensor,
+        task_id: int,
+    ) -> torch.Tensor:
+        """Compute trust scores for a batch.
+
         Args:
-            physics_consistency: Physics consistency score (0-1)
-            ood_score: OOD score (0-1, higher = more in-distribution)
-            calibration_error: Calibration error (lower is better)
-            prediction_confidence: Prediction confidence (0-1)
-            
+            prediction_errors: (B,) per-sample prediction errors
+            confidences: (B,) per-sample confidence scores [0, 1]
+            task_id: current task identifier
+
         Returns:
-            TrustScore with overall score and breakdown
+            trust_scores: (B,) in [0, 1]
         """
-        # Normalize calibration error (lower is better)
-        calibration_score = max(0, 1 - calibration_error)
-        
-        # Compute components
-        physics_component = self.physics_weight * physics_consistency
-        ood_component = self.ood_weight * ood_score
-        calibration_component = self.calibration_weight * calibration_score
-        confidence_component = self.confidence_weight * prediction_confidence
-        historical_component = self.historical_weight * self.historical_accuracy
-        
-        # Compute overall score
-        overall = (
-            physics_component +
-            ood_component +
-            calibration_component +
-            confidence_component +
-            historical_component
-        )
-        
-        # Clip to [0, 1]
-        overall = min(1.0, max(0.0, overall))
-        
-        return TrustScore(
-            overall=overall,
-            physics_component=physics_component,
-            ood_component=ood_component,
-            calibration_component=calibration_component,
-            confidence_component=confidence_component,
-            historical_component=historical_component,
-            is_trustworthy=overall >= self.trust_threshold,
-        )
-    
-    def update_historical_accuracy(self, was_correct: bool):
-        """Update historical accuracy tracking.
-        
+        errors = prediction_errors.detach().cpu().numpy()
+        confs = confidences.detach().cpu().numpy()
+
+        # Update EMA
+        if task_id not in self.task_ema_error:
+            self.task_ema_error[task_id] = float(errors.mean())
+            self.task_ema_confidence[task_id] = float(confs.mean())
+        else:
+            self.task_ema_error[task_id] = (
+                self.ema_alpha * self.task_ema_error[task_id]
+                + (1 - self.ema_alpha) * float(errors.mean())
+            )
+            self.task_ema_confidence[task_id] = (
+                self.ema_alpha * self.task_ema_confidence[task_id]
+                + (1 - self.ema_alpha) * float(confs.mean())
+            )
+
+        # Normalize errors relative to EMA
+        ema_error = self.task_ema_error[task_id]
+        if ema_error > 0:
+            error_norm = np.clip(errors / (ema_error + 1e-8), 0, 2) / 2
+        else:
+            error_norm = np.zeros_like(errors)
+
+        # Trust = (1 - normalized_error) * confidence
+        trust_scores = (1 - error_norm) * confs
+
+        return torch.tensor(trust_scores, dtype=torch.float32)
+
+    def should_consolidate(self, trust_score: float) -> bool:
+        """Decide whether to consolidate based on trust score.
+
+        High trust → consolidate (protect this knowledge).
+        Low trust → allow plasticity (learn new patterns).
+        """
+        return trust_score > self.trust_threshold
+
+    def get_task_stats(self) -> dict:
+        """Return per-task trust statistics."""
+        stats = {}
+        for task_id in self.task_ema_error:
+            stats[task_id] = {
+                "ema_error": self.task_ema_error[task_id],
+                "ema_confidence": self.task_ema_confidence[task_id],
+                "trust": (1 - self.task_ema_error[task_id]) * self.task_ema_confidence[task_id],
+            }
+        return stats
+
+
+class TrustWeightedConsolidation:
+    """Consolidate network parameters based on trust-weighted importance.
+
+    When trust is high for a task → protect parameters important for that task.
+    When trust is low → allow parameters to be modified freely.
+
+    Uses EWC-style Fisher information, weighted by trust score.
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        trust_threshold: float = 0.5,
+        ewc_lambda: float = 5000.0,
+        device: torch.device = torch.device("cpu"),
+    ):
+        self.model = model
+        self.trust_threshold = trust_threshold
+        self.ewc_lambda = ewc_lambda
+        self.device = device
+
+        # Per-task Fisher information and optimal parameters
+        self.fisher_info: dict[int, dict[str, torch.Tensor]] = {}
+        self.optimal_params: dict[int, dict[str, torch.Tensor]] = {}
+        self.task_trust: dict[int, float] = {}
+
+    @torch.no_grad()
+    def compute_fisher(
+        self,
+        task_id: int,
+        dataloader,
+        loss_fn,
+        num_samples: int = 1000,
+    ):
+        """Compute Fisher information for a task.
+
         Args:
-            was_correct: Whether the last prediction was correct
+            task_id: task identifier
+            dataloader: data from the current task
+            loss_fn: loss function
+            num_samples: number of samples to estimate Fisher
         """
-        # Exponential moving average
-        alpha = 0.1
-        self.historical_accuracy = (
-            alpha * float(was_correct) +
-            (1 - alpha) * self.historical_accuracy
-        )
-        self.accuracy_history.append(float(was_correct))
-    
-    def get_calibration_error(self) -> float:
-        """Get current calibration error."""
-        if len(self.accuracy_history) < 10:
-            return 0.0
-        
-        # Simple calibration error
-        recent_accuracy = sum(self.accuracy_history[-100:]) / len(self.accuracy_history[-100:])
-        return abs(recent_accuracy - self.historical_accuracy)
-    
-    def reset(self):
-        """Reset trust scorer state."""
-        self.historical_accuracy = 0.5
-        self.accuracy_history.clear()
+        self.model.eval()
+        fisher = {
+            n: torch.zeros_like(p)
+            for n, p in self.model.named_parameters()
+            if p.requires_grad
+        }
+
+        count = 0
+        for batch in dataloader:
+            if count >= num_samples:
+                break
+            self.model.zero_grad()
+            loss = loss_fn(batch)
+            loss.backward()
+
+            for n, p in self.model.named_parameters():
+                if p.grad is not None and n in fisher:
+                    fisher[n] += p.grad.data.pow(2)
+            count += len(batch[0]) if isinstance(batch, (list, tuple)) else 1
+
+        # Normalize
+        for n in fisher:
+            fisher[n] /= max(count, 1)
+
+        self.fisher_info[task_id] = fisher
+        self.optimal_params[task_id] = {
+            n: p.data.clone()
+            for n, p in self.model.named_parameters()
+            if p.requires_grad
+        }
+
+    def set_trust(self, task_id: int, trust_score: float):
+        """Set trust score for a task."""
+        self.task_trust[task_id] = trust_score
+
+    def compute_penalty(self) -> torch.Tensor:
+        """Compute EWC penalty, weighted by trust scores.
+
+        High trust → protect parameters (large penalty).
+        Low trust → allow modification (small penalty).
+        """
+        penalty = torch.tensor(0.0, device=self.device)
+
+        for task_id, fisher in self.fisher_info.items():
+            trust = self.task_trust.get(task_id, 0.5)
+            trust_weight = trust if trust > self.trust_threshold else 0.1
+
+            for n, p in self.model.named_parameters():
+                if n in fisher and n in self.optimal_params[task_id]:
+                    optimal = self.optimal_params[task_id][n].to(self.device)
+                    penalty += (trust_weight * self.ewc_lambda * fisher[n] * (p - optimal).pow(2)).sum()
+
+        return penalty
+
+    def consolidation_strength(self, task_id: int) -> float:
+        """Return consolidation strength for a task (0-1).
+
+        1.0 = fully consolidated (frozen).
+        0.0 = fully plastic.
+        """
+        trust = self.task_trust.get(task_id, 0.5)
+        if trust > self.trust_threshold:
+            return min(1.0, trust)
+        return 0.0

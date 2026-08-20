@@ -235,7 +235,12 @@ class ExperienceReplay:
 
 
 class TrustAwareCL:
-    """Trust-Aware Continual Learning (Your Method)."""
+    """Trust-Aware Continual Learning.
+    
+    Always consolidates after each task. Trust score weights the distillation
+    penalty: high-trust snapshots exert strong regularization (preserve knowledge),
+    low-trust snapshots exert weak regularization (allow plasticity).
+    """
     
     def __init__(self, model: nn.Module, trust_threshold: float = 0.7):
         self.model = model
@@ -245,7 +250,7 @@ class TrustAwareCL:
         self.task_count = 0
         
     def compute_trust_score(self, dataloader: DataLoader) -> float:
-        """Compute trust score for current task."""
+        """Compute trust = accuracy on current task after training."""
         self.model.eval()
         correct = 0
         total = 0
@@ -259,41 +264,33 @@ class TrustAwareCL:
         
         return correct / total if total > 0 else 0.0
     
-    def should_consolidate(self, trust_score: float) -> bool:
-        """Decide whether to consolidate based on trust score."""
-        return trust_score >= self.trust_threshold
-    
     def consolidate(self, dataloader: DataLoader):
-        """Save model snapshot if trust is high enough."""
+        """Always save model snapshot; weight by trust score."""
         trust_score = self.compute_trust_score(dataloader)
-        
-        if self.should_consolidate(trust_score):
-            prev_model = copy.deepcopy(self.model)
-            prev_model.eval()
-            self.task_models.append(prev_model)
-            self.task_trust_scores.append(trust_score)
-            self.task_count += 1
-            return True
-        return False
+        prev_model = copy.deepcopy(self.model)
+        prev_model.eval()
+        self.task_models.append(prev_model)
+        self.task_trust_scores.append(trust_score)
+        self.task_count += 1
     
     def penalty(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute trust-weighted penalty."""
+        """Trust-weighted KD penalty from all previous task snapshots."""
         if len(self.task_models) == 0:
             return torch.tensor(0.0)
         
-        penalty = 0.0
+        penalty = torch.tensor(0.0)
         for i, prev_model in enumerate(self.task_models):
             with torch.no_grad():
                 prev_output = prev_model(x)
             current_output = self.model(x)
             
-            # Weight by trust score
+            # Weight by trust: high trust = strong regularization
             weight = self.task_trust_scores[i]
             
             # Knowledge distillation loss
-            penalty += weight * F.kl_div(
-                F.log_softmax(current_output, dim=1),
-                F.softmax(prev_output, dim=1),
+            penalty = penalty + weight * F.kl_div(
+                F.log_softmax(current_output / 2.0, dim=1),
+                F.softmax(prev_output / 2.0, dim=1),
                 reduction='batchmean'
             )
         
