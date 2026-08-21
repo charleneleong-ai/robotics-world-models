@@ -1,0 +1,56 @@
+{
+  "Fine-tuning": {
+    "task_accuracies": [0.7473, 0.7327, 0.6947, 0.7367],
+    "avg_accuracy": 0.7278,
+    "bwt": -0.0260,
+    "fwt": 0.6371
+  },
+  "EWC": {
+    "task_accuracies": [0.7480, 0.6393, 0.6300, 0.6210],
+    "avg_accuracy": 0.6596,
+    "bwt": -0.1179,
+    "fwt": 0.6584
+  },
+  "LwF": {
+    "task_accuracies": [0.7167, 0.5273, 0.5387, 0.5283],
+    "avg_accuracy": 0.5777,
+    "bwt": -0.1852,
+    "fwt": 0.5759
+  },
+  "PackNet": {
+    "task_accuracies": [0.7333, 0.7147, 0.6780, 0.6667],
+    "avg_accuracy": 0.6982,
+    "bwt": -0.0469,
+    "fwt": 0.5941
+  },
+  "Experience Replay": {
+    "task_accuracies": [0.7280, 0.7207, 0.6993, 0.7337],
+    "avg_accuracy": 0.7204,
+    "bwt": -0.0101,
+    "fwt": 0.5944
+  },
+  "Prioritized Replay": {
+    "task_accuracies": [0.7367, 0.6960, 0.7113, 0.7077],
+    "avg_accuracy": 0.7129,
+    "bwt": -0.0317,
+    "fwt": 0.6004
+  },
+  "Curious Replay": {
+    "task_accuracies": [0.7633, 0.7360, 0.7067, 0.7400],
+    "avg_accuracy": 0.7365,
+    "bwt": -0.0358,
+    "fwt": 0.5633
+  },
+  "WM Trust CL": {
+    "task_accuracies": [0.7527, 0.6393, 0.6307, 0.6013],
+    "avg_accuracy": 0.6560,
+    "bwt": -0.1289,
+    "fwt": 0.5966
+  },
+  "ContinualWAM (ours)": {
+    "task_accuracies": [0.7513, 0.6940, 0.7133, 0.7247],
+    "avg_accuracy": 0.7208,
+    "bwt": -0.0407,
+    "fwt": 0.5787
+  }
+}
