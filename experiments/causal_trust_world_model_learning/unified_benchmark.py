@@ -689,7 +689,7 @@ def main():
     args = parser.parse_args()
 
     # Phase 1: Subset environments
-    kinder_envs = [
+    kinder_phase1 = [
         "kinder/Motion2D-p0-v0",
         "kinder/StickButton2D-b1-v0",
         "kinder/Obstruction2D-o1-v0",
@@ -698,12 +698,96 @@ def main():
         "kinder/Packing3D-p1-v0",
     ]
 
-    maniskill_envs = [
+    maniskill_phase1 = [
         "PickCube-v1",
         "PushCube-v1",
         "LiftPegUpright-v1",
         "PlugCharger-v1",
     ]
+
+    # Phase 2: Full environment sets
+    kinder_phase2 = [
+        # 2D environments
+        "kinder/Motion2D-p0-v0",
+        "kinder/Motion2D-p1-v0",
+        "kinder/Motion2D-p2-v0",
+        "kinder/Motion2D-p3-v0",
+        "kinder/Motion2D-p4-v0",
+        "kinder/Motion2D-p5-v0",
+        "kinder/StickButton2D-b1-v0",
+        "kinder/StickButton2D-b2-v0",
+        "kinder/StickButton2D-b3-v0",
+        "kinder/StickButton2D-b5-v0",
+        "kinder/StickButton2D-b10-v0",
+        "kinder/Obstruction2D-o0-v0",
+        "kinder/Obstruction2D-o1-v0",
+        "kinder/Obstruction2D-o2-v0",
+        "kinder/Obstruction2D-o3-v0",
+        "kinder/Obstruction2D-o4-v0",
+        "kinder/ClutteredStorage2D-b1-v0",
+        "kinder/ClutteredStorage2D-b3-v0",
+        "kinder/ClutteredStorage2D-b7-v0",
+        "kinder/ClutteredStorage2D-b15-v0",
+        "kinder/ClutteredRetrieval2D-o1-v0",
+        "kinder/ClutteredRetrieval2D-o10-v0",
+        "kinder/ClutteredRetrieval2D-o25-v0",
+        "kinder/DynObstruction2D-o0-v0",
+        "kinder/DynObstruction2D-o1-v0",
+        "kinder/DynObstruction2D-o2-v0",
+        "kinder/DynObstruction2D-o3-v0",
+        "kinder/DynPushPullHook2D-o0-v0",
+        "kinder/DynPushPullHook2D-o1-v0",
+        "kinder/DynPushPullHook2D-o5-v0",
+        "kinder/DynPushT2D-t1-v0",
+        "kinder/DynScoopPour2D-o10-v0",
+        "kinder/DynScoopPour2D-o20-v0",
+        "kinder/DynScoopPour2D-o30-v0",
+        "kinder/DynScoopPour2D-o50-v0",
+        "kinder/PushPullHook2D-v0",
+        # 3D environments
+        "kinder/BaseMotion3D-v0",
+        "kinder/KinematicShelf3D-o1-v0",
+        "kinder/KinematicShelf3D-o2-v0",
+        "kinder/KinematicShelf3D-o3-v0",
+        "kinder/KinematicShelf3D-o5-v0",
+        "kinder/KinematicShelf3D-o10-v0",
+        "kinder/Obstruction3D-o0-v0",
+        "kinder/Obstruction3D-o1-v0",
+        "kinder/Obstruction3D-o2-v0",
+        "kinder/Obstruction3D-o3-v0",
+        "kinder/Obstruction3D-o4-v0",
+        "kinder/Packing3D-p1-v0",
+        "kinder/Packing3D-p2-v0",
+        "kinder/Packing3D-p3-v0",
+        "kinder/PrplLab3D-o1-v0",
+        "kinder/PrplLab3D-o2-v0",
+        "kinder/Table3D-o1-v0",
+        "kinder/Table3D-o2-v0",
+        "kinder/Table3D-o3-v0",
+        "kinder/Transport3D-o1-v0",
+        "kinder/Transport3D-o2-v0",
+    ]
+
+    maniskill_phase2 = [
+        "PickCube-v1",
+        "PushCube-v1",
+        "LiftPegUpright-v1",
+        "PlugCharger-v1",
+        "StackCube-v1",
+        "PokeCube-v1",
+        "PullCube-v1",
+        "PullCubeTool-v1",
+        "PlaceSphere-v1",
+        "RollBall-v1",
+        "PushT-v1",
+        "MS-CartpoleBalance-v1",
+        "MS-HopperHop-v1",
+    ]
+
+    kinder_envs = kinder_phase2 if args.phase == 2 else kinder_phase1
+    maniskill_envs = maniskill_phase2 if args.phase == 2 else maniskill_phase1
+
+    print(f"Phase {args.phase}: {'Full' if args.phase == 2 else 'Subset'} benchmark")
 
     if args.benchmark == "kinder":
         run_benchmark("kinder", kinder_envs, args.obs_dim, args.n_episodes, args.max_steps, args.epochs)
