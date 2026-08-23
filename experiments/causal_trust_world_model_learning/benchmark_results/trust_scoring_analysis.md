@@ -26,8 +26,8 @@
 **Performance:** 76.4% reduction in prediction error, +30% OOD success rate
 **Key insight:** Execution itself provides natural trust signal
 
-### 5. Adaptive Execution Verification (Best for Deployment)
-**Source:** When2Trust / FFDC (2026)
+### 5. FFDC Verifier (Best for Deployment)
+**Source:** When to Trust Imagination (FFDC, 2026, arxiv 2605.06222)
 **Metric:** Joint reasoning over predicted actions, visual dynamics, real observations, language
 **Performance:** -69% forward passes, -34% execution time, +2.5% success rate
 **Key insight:** Trust determines action chunk size adaptively

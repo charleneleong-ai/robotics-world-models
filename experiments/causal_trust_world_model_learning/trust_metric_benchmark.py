@@ -59,7 +59,7 @@ def run_trust_comparison(
         "ema_pred_error": [],
         "action_state_consistency": [],
         "ensemble_disagreement": [],
-        "feedback_correction": [],
+        "ffdc_verifier": [],
         "forward_inverse_cycle": [],
     }
 
@@ -159,7 +159,7 @@ def run_cl_with_trust_metrics(
         "ContinualWAM-EMA": None,
         "ContinualWAM-ASC": None,
         "ContinualWAM-Ensemble": None,
-        "ContinualWAM-Feedback": None,
+        "ContinualWAM-FFDC": None,
         "ContinualWAM-Cycle": None,
     }
 

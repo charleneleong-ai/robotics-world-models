@@ -84,44 +84,32 @@ class EnsembleDisagreementTrust:
         return trust.clamp(0, 1)
 
 
-class FeedbackCorrectionTrust:
-    """Trust based on feedback-corrected prediction error.
-    Source: Feedback World Model (2026)
+class FFDCTrust:
+    """Trust via Future Forward Dynamics Causal Attention.
+    Source: When to Trust Imagination (FFDC, 2026, arxiv 2605.06222)
+    Jointly reasons over predicted actions, visual dynamics, real observations, language.
     """
 
-    def __init__(self, hidden_dim: int = 64, ema_alpha: float = 0.9):
-        self.feedback_encoder = nn.Linear(hidden_dim * 2, hidden_dim)
-        self.ema_alpha = ema_alpha
-        self.feedback_state: dict[int, Optional[torch.Tensor]] = {}
+    def __init__(self, obs_dim: int = 64, action_dim: int = 64):
+        self.verifier = nn.Sequential(
+            nn.Linear(obs_dim * 3 + action_dim, 128),
+            nn.SiLU(),
+            nn.Linear(128, 64),
+            nn.SiLU(),
+            nn.Linear(64, 1),
+            nn.Sigmoid(),
+        )
 
     def compute_trust(
         self,
         pred_obs: torch.Tensor,
         actual_obs: torch.Tensor,
-        prev_pred: Optional[torch.Tensor],
+        action: torch.Tensor,
+        features: torch.Tensor,
         task_id: int,
     ) -> torch.Tensor:
-        if prev_pred is not None and task_id in self.feedback_state:
-            correction_input = torch.cat(
-                [prev_pred, self.feedback_state[task_id]], dim=-1
-            )
-            feedback = torch.sigmoid(self.feedback_encoder(correction_input))
-            corrected_pred = pred_obs * (1 + feedback)
-        else:
-            corrected_pred = pred_obs
-            feedback = torch.zeros_like(pred_obs[..., :1])
-
-        error = F.mse_loss(corrected_pred, actual_obs, reduction="none").mean(dim=-1)
-        trust = torch.exp(-error)
-
-        if task_id not in self.feedback_state:
-            self.feedback_state[task_id] = feedback.mean(dim=0, keepdim=True).squeeze(0)
-        else:
-            self.feedback_state[task_id] = (
-                self.ema_alpha * self.feedback_state[task_id]
-                + (1 - self.ema_alpha) * feedback.mean(dim=0, keepdim=True).squeeze(0)
-            )
-
+        verifier_input = torch.cat([pred_obs, actual_obs, features, action], dim=-1)
+        trust = self.verifier(verifier_input).squeeze(-1)
         return trust.clamp(0, 1)
 
 
@@ -161,7 +149,7 @@ class TrustMetricComparator:
         self.ema_trust = EMAPredictionTrust()
         self.asc_trust = ActionStateConsistencyTrust()
         self.ensemble_trust = EnsembleDisagreementTrust(obs_dim=obs_dim)
-        self.feedback_trust = FeedbackCorrectionTrust(hidden_dim=obs_dim)
+        self.ffdc_trust = FFDCTrust(obs_dim=obs_dim, action_dim=action_dim)
         self.cycle_trust = ForwardInverseCycleTrust(obs_dim=obs_dim, action_dim=action_dim)
 
     def compute_all_trusts(
@@ -177,8 +165,8 @@ class TrustMetricComparator:
             "ema_pred_error": self.ema_trust.compute_trust(pred_obs, actual_obs, task_id),
             "action_state_consistency": self.asc_trust.compute_trust(pred_obs, actual_obs, task_id),
             "ensemble_disagreement": self.ensemble_trust.compute_trust(features, task_id),
-            "feedback_correction": self.feedback_trust.compute_trust(
-                pred_obs, actual_obs, prev_pred, task_id
+            "ffdc_verifier": self.ffdc_trust.compute_trust(
+                pred_obs, actual_obs, action, features, task_id
             ),
             "forward_inverse_cycle": self.cycle_trust.compute_trust(
                 pred_obs, actual_obs, action, task_id
@@ -188,6 +176,6 @@ class TrustMetricComparator:
     def get_parameters(self) -> list[nn.Parameter]:
         params = []
         params.extend(self.ensemble_trust.ensemble_heads.parameters())
-        params.extend(self.feedback_trust.feedback_encoder.parameters())
+        params.extend(self.ffdc_trust.verifier.parameters())
         params.extend(self.cycle_trust.inverse_model.parameters())
         return params
