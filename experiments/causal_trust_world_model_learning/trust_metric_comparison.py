@@ -90,9 +90,12 @@ class FFDCTrust:
     Jointly reasons over predicted actions, visual dynamics, real observations, language.
     """
 
-    def __init__(self, obs_dim: int = 64, action_dim: int = 64):
+    def __init__(self, obs_dim: int = 64, action_dim: int = 64, feature_dim: int = 0):
+        if feature_dim <= 0:
+            feature_dim = obs_dim
+        input_dim = obs_dim * 2 + feature_dim + action_dim
         self.verifier = nn.Sequential(
-            nn.Linear(obs_dim * 3 + action_dim, 128),
+            nn.Linear(input_dim, 128),
             nn.SiLU(),
             nn.Linear(128, 64),
             nn.SiLU(),
