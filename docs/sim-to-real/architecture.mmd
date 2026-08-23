@@ -1,0 +1,64 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px', 'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BAC', 'lineColor': '#5C6BC0', 'secondaryColor': '#81C784', 'tertiaryColor': '#FFB74D'}}}%%
+
+flowchart TB
+    subgraph SIM["🔧 Simulation Environment"]
+        S1[ManiSkill3<br/>PlugCharger-v1]
+        S2[Domain Randomization<br/>Physics + Obs + Action Noise]
+        S1 --> S2
+    end
+
+    subgraph COLLECT["📊 Data Collection"]
+        C1[Transitions<br/>obs, action, next_obs]
+        C2[Video Frames<br/>B, T, C, H, W]
+        S2 --> C1
+        S2 --> C2
+    end
+
+    subgraph WM["🧠 Diffusion World Model"]
+        W1[MLPDenoiser<br/>FiLM Conditioning]
+        W2[DDPM Process<br/>Cosine Schedule]
+        W3[Conditional Sampling<br/>p(s_t+1 | s_t, a_t)]
+        W1 --> W2 --> W3
+    end
+
+    subgraph SYSID["🎯 System Identification"]
+        Y1[Parameter Estimator<br/>Attention + MLP]
+        Y2[Physics Params<br/>friction, mass, damping]
+        Y1 --> Y2
+    end
+
+    subgraph RES["🔄 Residual Dynamics"]
+        R1[Residual Network<br/>obs + action → Δs]
+        R2[Hybrid Model<br/>sim + residual]
+        R3[Online Adapter<br/>Buffer + Update]
+        R1 --> R2
+        R2 --> R3
+    end
+
+    subgraph EVAL["📈 Evaluation"]
+        E1[Video Metrics<br/>FVD, LPIPS]
+        E2[Fidelity<br/>Calibration + Divergence]
+        E3[Trust Scoring<br/>EMA-based]
+        E1 --> E2 --> E3
+    end
+
+    subgraph REAL["🤖 Real Robot"]
+        RT[Real-world<br/>Deployment]
+    end
+
+    C1 --> WM
+    C2 --> EVAL
+    C1 --> SYSID
+    WM --> RES
+    SYSID --> RES
+    RES --> RT
+    RT --> E2
+    E3 -->|Trust < threshold| RT
+
+    style SIM fill:#E3F2FD,stroke:#1976D2,stroke-width:2px
+    style COLLECT fill:#E8F5E9,stroke:#388E3C,stroke-width:2px
+    style WM fill:#FFF3E0,stroke:#F57C00,stroke-width:2px
+    style SYSID fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    style RES fill:#FFEBEE,stroke:#D32F2F,stroke-width:2px
+    style EVAL fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    style REAL fill:#F5F5F5,stroke:#616161,stroke-width:2px

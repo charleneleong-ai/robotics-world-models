@@ -1,0 +1,37 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '13px'}}}%%
+
+flowchart LR
+    subgraph STEP1["Step 1: Domain Rand"]
+        D1[Physics Params<br/>摩擦, 質量, 減衰]
+        D2[Obs Noise<br/>位置, 速度, 方向]
+        D3[Action Noise<br/>トルク, 位置]
+    end
+
+    subgraph STEP2["Step 2: System ID"]
+        S1[Real Trajectories<br/>obs, act, next_obs]
+        S2[Parameter Network<br/>Attention + MLP]
+        S3[Estimated Params<br/>multipliers]
+        S1 --> S2 --> S3
+    end
+
+    subgraph STEP3["Step 3: Residual"]
+        R1[Sim Prediction<br/> diffusion model]
+        R2[Residual Net<br/>learned correction]
+        R3[Hybrid Output<br/>sim + residual]
+        R1 --> R3
+        R2 --> R3
+    end
+
+    subgraph STEP4["Step 4: Evaluate"]
+        E1[FVD Score<br/>video quality]
+        E2[Divergence<br/>prediction error]
+        E3[Trust Score<br/>1/(1+divergence)]
+        E1 --> E2 --> E3
+    end
+
+    STEP1 --> STEP2 --> STEP3 --> STEP4
+
+    style STEP1 fill:#E3F2FD,stroke:#1976D2
+    style STEP2 fill:#E8F5E9,stroke:#388E3C
+    style STEP3 fill:#FFF3E0,stroke:#F57C00
+    style STEP4 fill:#F3E5F5,stroke:#7B1FA2
