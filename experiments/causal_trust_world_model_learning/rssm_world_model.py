@@ -259,7 +259,6 @@ class WorldModel(nn.Module):
         h, z = self.rssm.initial_state(batch_size, device)
 
         prior_kls = []
-        post_kls = []
         obs_losses = []
         reward_losses = []
         continue_losses = []
@@ -279,25 +278,26 @@ class WorldModel(nn.Module):
             kl_post = result["post_dist"].log_prob(result["z_sampled"])
             kl_prior = result["prior_dist"].log_prob(result["z_sampled"])
             kl = torch.clamp(kl_post - kl_prior, min=free_nats).sum(dim=-1).mean()
-            prior_kls.append(kl.item())
+            prior_kls.append(kl)
 
             # Observation reconstruction loss
-            obs_pred = self.obs_decoder(z)
-            obs_loss = F.mse_loss(obs_pred, obs_t).item()
+            state = torch.cat([result["h"], result["z"]], dim=-1)
+            obs_pred = self.obs_decoder(state)
+            obs_loss = F.mse_loss(obs_pred, obs_t)
             obs_losses.append(obs_loss)
 
             # Reward prediction loss
-            reward_loss = F.mse_loss(result["reward_pred"], reward_t).item()
+            reward_loss = F.mse_loss(result["reward_pred"], reward_t)
             reward_losses.append(reward_loss)
 
             # Continue prediction loss
             continue_loss = F.binary_cross_entropy_with_logits(
                 result["continue_pred"], (1.0 - done_t)
-            ).item()
+            )
             continue_losses.append(continue_loss)
 
             # Trust score
-            trust = self.trust_head(z).mean().item()
+            trust = self.trust_head(state).mean()
             trust_scores.append(trust)
 
         # Total loss for backprop
@@ -308,11 +308,11 @@ class WorldModel(nn.Module):
 
         return {
             "total_loss": total_loss,
-            "prior_kl": sum(prior_kls) / seq_len,
-            "obs_loss": sum(obs_losses) / seq_len,
-            "reward_loss": sum(reward_losses) / seq_len,
-            "continue_loss": sum(continue_losses) / seq_len,
-            "trust_score": sum(trust_scores) / seq_len,
+            "prior_kl": sum(l.item() for l in prior_kls) / seq_len,
+            "obs_loss": sum(l.item() for l in obs_losses) / seq_len,
+            "reward_loss": sum(l.item() for l in reward_losses) / seq_len,
+            "continue_loss": sum(l.item() for l in continue_losses) / seq_len,
+            "trust_score": sum(l.item() for l in trust_scores) / seq_len,
         }
 
     def compute_trust(
