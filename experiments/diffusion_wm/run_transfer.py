@@ -11,7 +11,8 @@ Runs all 6 milestones end-to-end with synthetic data:
 
 Usage:
     PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py
-    PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py --no-wandb
+    PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py --no-log
+    PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py --tracker trackio
 """
 from __future__ import annotations
 
@@ -33,31 +34,51 @@ def section(title: str) -> None:
     print(f"{'='*60}")
 
 
+def init_tracker(project: str, name: str, config: dict, tracker: str = "wandb"):
+    """Initialize tracking backend (wandb or trackio)."""
+    if tracker == "trackio":
+        import trackio
+        run = trackio.init(project=project, name=name, config=config)
+        return run, trackio
+    else:
+        import wandb
+        run = wandb.init(project=project, name=name, config=config)
+        return run, wandb
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sim-to-real transfer pipeline")
-    parser.add_argument("--no-wandb", action="store_true", help="Disable W&B logging")
+    parser.add_argument("--no-log", action="store_true", help="Disable all logging")
+    parser.add_argument("--tracker", default="wandb", choices=["wandb", "trackio"],
+                        help="Tracking backend: wandb or trackio")
     parser.add_argument("--task", default="PlugCharger-v1", help="ManiSkill task")
-    parser.add_argument("--project", default="wm-manip", help="W&B project name")
+    parser.add_argument("--project", default="wm-manip", help="Project name")
+    parser.add_argument("--space-id", default=None, help="HF Space ID for trackio sharing")
     args = parser.parse_args()
 
-    # ── W&B init ────────────────────────────────────────────────────
-    run = None
-    if not args.no_wandb:
+    # ── Tracker init ──────────────────────────────────────────────────
+    run, tracker = None, None
+    if not args.no_log:
         try:
-            import wandb
-            run = wandb.init(
-                project=args.project,
-                name="sim-to-real-pipeline",
-                config={"obs_dim": OBS_DIM, "act_dim": ACT_DIM, "batch": BATCH, "task": args.task},
-            )
-            print(f"  W&B run: {run.url}")
+            config = {"obs_dim": OBS_DIM, "act_dim": ACT_DIM, "batch": BATCH, "task": args.task}
+            if args.tracker == "trackio":
+                import trackio
+                init_kwargs = {"project": args.project, "name": "sim-to-real-pipeline", "config": config}
+                if args.space_id:
+                    init_kwargs["space_id"] = args.space_id
+                run = trackio.init(**init_kwargs)
+                tracker = trackio
+            else:
+                import wandb
+                run = wandb.init(project=args.project, name="sim-to-real-pipeline", config=config)
+                tracker = wandb
+            print(f"  Tracker: {args.tracker} — {getattr(run, 'url', 'local')}")
         except Exception as e:
-            print(f"  W&B unavailable ({e}), continuing without logging")
+            print(f"  Tracker unavailable ({e}), continuing without logging")
 
     def log(metrics: dict[str, float], step: int | None = None) -> None:
-        if run is not None:
-            import wandb
-            wandb.log(metrics, step=step)
+        if run is not None and tracker is not None:
+            tracker.log(metrics, step=step)
 
     t0 = time.time()
 
@@ -310,9 +331,8 @@ def main() -> None:
     elapsed = time.time() - t0
     print(f"  Total time: {elapsed:.1f}s")
     print(f"  All 6 milestones passed successfully!")
-    if run is not None:
-        import wandb
-        wandb.finish()
+    if run is not None and tracker is not None:
+        tracker.finish()
     print()
 
 
