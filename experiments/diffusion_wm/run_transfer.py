@@ -49,8 +49,8 @@ def init_tracker(project: str, name: str, config: dict, tracker: str = "wandb"):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sim-to-real transfer pipeline")
     parser.add_argument("--no-log", action="store_true", help="Disable all logging")
-    parser.add_argument("--tracker", default="wandb", choices=["wandb", "trackio"],
-                        help="Tracking backend: wandb or trackio")
+    parser.add_argument("--tracker", default="trackio", choices=["wandb", "trackio"],
+                        help="Tracking backend: trackio (default) or wandb")
     parser.add_argument("--task", default="PlugCharger-v1", help="ManiSkill task")
     parser.add_argument("--project", default="wm-manip", help="Project name")
     parser.add_argument("--space-id", default=None, help="HF Space ID for trackio sharing")
