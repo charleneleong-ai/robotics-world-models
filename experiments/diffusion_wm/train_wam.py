@@ -280,6 +280,7 @@ def main(
     inference_steps: int = typer.Option(100, help="Sampling steps"),
     action_horizon: int = typer.Option(1, help="Action prediction horizon"),
     resume: str | None = typer.Option(None, help="Checkpoint to resume from"),
+    checkpoint_dir: Path = typer.Option(Path("checkpoints/diffusion_wm"), help="Checkpoint output dir"),
     project: str = typer.Option("wm-manip"),
     eval_interval: int = typer.Option(5000),
     device: str = typer.Option("cuda"),
@@ -288,7 +289,8 @@ def main(
         data_dir=data_dir, run_id=run_id, num_steps=num_steps, batch_size=batch_size,
         lr=lr, hidden_dim=hidden_dim, num_blocks=num_blocks,
         diffusion_timesteps=diffusion_timesteps, inference_steps=inference_steps,
-        action_horizon=action_horizon, resume=resume, project=project, eval_interval=eval_interval,
+        action_horizon=action_horizon, resume=resume, checkpoint_dir=checkpoint_dir,
+        project=project, eval_interval=eval_interval,
     )
     train(cfg)
 
