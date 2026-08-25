@@ -130,7 +130,10 @@ class SelfDrivingLoop:
         return best_ckpt
 
     def _serve(self, checkpoint_path: Path) -> subprocess.Popen:
-        """Start Ray Serve policy server in background."""
+        """Start FastAPI policy server in background."""
+        # Kill any stale server on this port
+        self._kill_port(self.config.port)
+
         cmd = [
             str(Path(".venv/bin/python")),
             "-m", "experiments.diffusion_wm.serve",
@@ -139,9 +142,31 @@ class SelfDrivingLoop:
         ]
         env = os.environ.copy()
         env["PYTHONPATH"] = "."
-        proc = subprocess.Popen(cmd, env=env)
-        time.sleep(5)  # Wait for server to start
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Wait for server to be ready
+        import requests as _requests
+        for _ in range(30):
+            time.sleep(1)
+            try:
+                _requests.get(f"http://localhost:{self.config.port}/health", timeout=2)
+                break
+            except Exception:
+                pass
         return proc
+
+    def _kill_port(self, port: int) -> None:
+        """Kill any process listening on the given port."""
+        import subprocess as _sp
+        try:
+            pids = _sp.check_output(
+                f"lsof -ti :{port}", shell=True, text=True
+            ).strip().split("\n")
+            for pid in pids:
+                if pid:
+                    _sp.run(["kill", "-9", pid], capture_output=True)
+            time.sleep(0.5)
+        except Exception:
+            pass
 
     def _eval(self, round_num: int, checkpoint_path: Path) -> dict:
         """Evaluate WAM in ManiSkill3 sim via HTTP."""
