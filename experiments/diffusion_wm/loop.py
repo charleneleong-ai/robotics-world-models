@@ -99,12 +99,20 @@ class SelfDrivingLoop:
         ckpt_dir = self._round_dir(round_num)
         run_id = f"wam_round_{round_num:02d}_{self.config.task}"
 
+        # Auto-scale batch size for small datasets
+        num_transitions = sum(
+            len(np.load(shard)["obs"]) for shard in sorted(data_dir.glob("shard_*.npz"))
+        )
+        batch_size = min(256, max(16, num_transitions // 4))
+        num_steps = min(self.config.train_steps_per_round, num_transitions * 10)
+
         cmd = [
             str(Path(".venv/bin/python")),
             "-m", "experiments.diffusion_wm.train_wam",
             "--data-dir", str(data_dir),
             "--run-id", run_id,
-            "--num-steps", str(self.config.train_steps_per_round),
+            "--num-steps", str(num_steps),
+            "--batch-size", str(batch_size),
             "--hidden-dim", str(self.config.hidden_dim),
             "--num-blocks", str(self.config.num_blocks),
             "--diffusion-timesteps", str(self.config.diffusion_timesteps),
