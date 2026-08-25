@@ -1,0 +1,150 @@
+# Self-Driving Learning Loop — 5-task × 5-round sweep config
+# Usage: python -m experiments.diffusion_wm.loop --task <task> --num-rounds 5
+
+common_overrides: |
+  module: experiments.diffusion_wm.loop
+  num_rounds: 5
+  episodes_per_round: 100
+  train_steps_per_round: 10000
+  hidden_dim: 512
+  num_blocks: 6
+  diffusion_timesteps: 1000
+  inference_steps: 100
+  trust_threshold: 0.7
+  reward_threshold: 0.5
+
+iters:
+  # ---- PlugCharger-v1 (precision insertion) ----
+  - name: plugcharger_r1
+    overrides: |
+      task: PlugCharger-v1
+      round: 1
+    seeds: [42]
+  - name: plugcharger_r2
+    overrides: |
+      task: PlugCharger-v1
+      round: 2
+    seeds: [42]
+  - name: plugcharger_r3
+    overrides: |
+      task: PlugCharger-v1
+      round: 3
+    seeds: [42]
+  - name: plugcharger_r4
+    overrides: |
+      task: PlugCharger-v1
+      round: 4
+    seeds: [42]
+  - name: plugcharger_r5
+    overrides: |
+      task: PlugCharger-v1
+      round: 5
+    seeds: [42]
+
+  # ---- PegInsertionSide-v1 (contact-rich) ----
+  - name: peginsertion_r1
+    overrides: |
+      task: PegInsertionSide-v1
+      round: 1
+    seeds: [42]
+  - name: peginsertion_r2
+    overrides: |
+      task: PegInsertionSide-v1
+      round: 2
+    seeds: [42]
+  - name: peginsertion_r3
+    overrides: |
+      task: PegInsertionSide-v1
+      round: 3
+    seeds: [42]
+  - name: peginsertion_r4
+    overrides: |
+      task: PegInsertionSide-v1
+      round: 4
+    seeds: [42]
+  - name: peginsertion_r5
+    overrides: |
+      task: PegInsertionSide-v1
+      round: 5
+    seeds: [42]
+
+  # ---- PickCube-v1 (simple pick) ----
+  - name: pickcube_r1
+    overrides: |
+      task: PickCube-v1
+      round: 1
+    seeds: [42]
+  - name: pickcube_r2
+    overrides: |
+      task: PickCube-v1
+      round: 2
+    seeds: [42]
+  - name: pickcube_r3
+    overrides: |
+      task: PickCube-v1
+      round: 3
+    seeds: [42]
+  - name: pickcube_r4
+    overrides: |
+      task: PickCube-v1
+      round: 4
+    seeds: [42]
+  - name: pickcube_r5
+    overrides: |
+      task: PickCube-v1
+      round: 5
+    seeds: [42]
+
+  # ---- PushCube-v1 (push) ----
+  - name: pushcube_r1
+    overrides: |
+      task: PushCube-v1
+      round: 1
+    seeds: [42]
+  - name: pushcube_r2
+    overrides: |
+      task: PushCube-v1
+      round: 2
+    seeds: [42]
+  - name: pushcube_r3
+    overrides: |
+      task: PushCube-v1
+      round: 3
+    seeds: [42]
+  - name: pushcube_r4
+    overrides: |
+      task: PushCube-v1
+      round: 4
+    seeds: [42]
+  - name: pushcube_r5
+    overrides: |
+      task: PushCube-v1
+      round: 5
+    seeds: [42]
+
+  # ---- LinkBridge-v1 (bridge) ----
+  - name: linkbridge_r1
+    overrides: |
+      task: LinkBridge-v1
+      round: 1
+    seeds: [42]
+  - name: linkbridge_r2
+    overrides: |
+      task: LinkBridge-v1
+      round: 2
+    seeds: [42]
+  - name: linkbridge_r3
+    overrides: |
+      task: LinkBridge-v1
+      round: 3
+    seeds: [42]
+  - name: linkbridge_r4
+    overrides: |
+      task: LinkBridge-v1
+      round: 4
+    seeds: [42]
+  - name: linkbridge_r5
+    overrides: |
+      task: LinkBridge-v1
+      round: 5
+    seeds: [42]

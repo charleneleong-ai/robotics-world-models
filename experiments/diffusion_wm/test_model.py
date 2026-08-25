@@ -59,6 +59,7 @@ from experiments.diffusion_wm.transfer import (
     TransferResult,
     run_full_transfer,
 )
+from experiments.diffusion_wm.world_action_model import WAMDenoiser, DiffusionWAM
 
 
 # ---------------------------------------------------------------------------
@@ -619,4 +620,145 @@ class TestTransferPipeline:
         assert isinstance(result, TransferResult)
         d = result.to_dict()
         assert "eval/hybrid_mse" in d
+
+
+# ---------------------------------------------------------------------------
+# WAMDenoiser
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def wam_denoiser(obs_dim, act_dim) -> WAMDenoiser:
+    return WAMDenoiser(
+        obs_dim=obs_dim, act_dim=act_dim,
+        hidden_dim=64, num_blocks=3, cond_dim=32,
+    )
+
+@pytest.fixture
+def wam(obs_dim, act_dim) -> DiffusionWAM:
+    return DiffusionWAM(
+        obs_dim=obs_dim, act_dim=act_dim,
+        hidden_dim=64, num_blocks=3, cond_dim=32,
+        timesteps=100, action_horizon=1,
+    )
+
+
+class TestWAMDenoiser:
+    def test_state_head_output_shape(self, wam_denoiser, batch, obs_dim, act_dim):
+        B = batch["obs"].size(0)
+        t = torch.randint(0, 100, (B,)).float()
+        x_noisy = torch.randn(B, obs_dim)
+        out = wam_denoiser(x_noisy, batch["obs"], "state", t)
+        assert out.shape == (B, obs_dim)
+
+    def test_action_head_output_shape(self, wam_denoiser, batch, obs_dim, act_dim):
+        B = batch["obs"].size(0)
+        t = torch.randint(0, 100, (B,)).float()
+        x_noisy = torch.randn(B, act_dim)
+        out = wam_denoiser(x_noisy, batch["obs"], "action", t)
+        assert out.shape == (B, act_dim)
+
+    def test_heads_independent(self, wam_denoiser, batch, obs_dim, act_dim):
+        B = batch["obs"].size(0)
+        t = torch.randint(0, 100, (B,)).float()
+        x_noisy_s = torch.randn(B, obs_dim)
+        x_noisy_a = torch.randn(B, act_dim)
+        state_out = wam_denoiser(x_noisy_s, batch["obs"], "state", t)
+        action_out = wam_denoiser(x_noisy_a, batch["obs"], "action", t)
+        assert state_out.shape != action_out.shape
+
+
+class TestDiffusionWAM:
+    def test_training_loss_components(self, wam, batch, obs_dim, act_dim):
+        obs = batch["obs"]
+        next_obs = batch["next_obs"]
+        action = batch["action"]
+        total_loss, losses = wam.training_loss(obs, next_obs, action)
+        assert total_loss.ndim == 0
+        assert total_loss.item() > 0
+        assert "state_loss" in losses
+        assert "action_loss" in losses
+        assert losses["state_loss"] > 0
+        assert losses["action_loss"] > 0
+
+    def test_training_loss_decreases(self, wam, batch):
+        """WAM overfitting test: loss should drop after training steps."""
+        opt = torch.optim.AdamW(wam.parameters(), lr=1e-2)
+        losses = []
+        for _ in range(100):
+            opt.zero_grad()
+            loss, _ = wam.training_loss(batch["obs"], batch["next_obs"], batch["action"])
+            loss.backward()
+            opt.step()
+            losses.append(loss.item())
+        assert losses[-1] < losses[0]
+
+    def test_predict_action_shape(self, wam, batch, act_dim):
+        B = batch["obs"].size(0)
+        action = wam.predict_action(batch["obs"], num_steps=10)
+        assert action.shape == (B, act_dim)
+
+    def test_predict_next_state_shape(self, wam, batch, obs_dim):
+        B = batch["obs"].size(0)
+        action = batch["action"]
+        next_state = wam.predict_next_state(batch["obs"], action, num_steps=10)
+        assert next_state.shape == (B, obs_dim)
+
+    def test_predict_action_chunk_shape(self, wam, batch, act_dim):
+        B = batch["obs"].size(0)
+        horizon = 5
+        chunk = wam.predict_action_chunk(batch["obs"], horizon=horizon, num_steps=10)
+        assert chunk.shape == (B, horizon, act_dim)
+
+    def test_rollout_shape(self, wam, batch, obs_dim, act_dim):
+        B = batch["obs"].size(0)
+        horizon = 5
+        actions = torch.randn(B, horizon, act_dim)
+        traj = wam.rollout(batch["obs"], actions, horizon=horizon, num_denoise_steps=10)
+        assert traj.shape == (B, horizon + 1, obs_dim)
+
+    def test_state_dict_roundtrip(self, wam):
+        sd = wam.state_dict()
+        assert "denoiser" in sd
+        assert "timesteps" in sd
+        wam2 = DiffusionWAM(
+            obs_dim=wam.obs_dim, act_dim=wam.act_dim,
+            hidden_dim=wam.denoiser.hidden_dim,
+            num_blocks=wam.denoiser.num_blocks,
+            cond_dim=wam.denoiser.time_embed[3].out_features,
+            timesteps=wam.timesteps,
+        )
+        wam2.load_state_dict(sd)
+        for (n1, p1), (n2, p2) in zip(wam.named_parameters(), wam2.named_parameters()):
+            assert torch.equal(p1, p2), f"Mismatch in {n1}"
+
+
+class TestWAMTrainingSmoke:
+    def test_one_step_forward_backward(self):
+        wam = DiffusionWAM(obs_dim=4, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8, timesteps=10)
+        B = 4
+        obs = torch.randn(B, 4)
+        action = torch.randn(B, 2)
+        next_obs = torch.randn(B, 4)
+        loss, losses = wam.training_loss(obs, next_obs, action)
+        loss.backward()
+        assert all(p.grad is not None for p in wam.parameters() if p.requires_grad)
+
+    def test_overfit_tiny_batch(self):
+        """Train WAM on 8 samples for 200 steps — should overfit."""
+        torch.manual_seed(0)
+        wam = DiffusionWAM(obs_dim=4, act_dim=2, hidden_dim=32, num_blocks=2, cond_dim=16, timesteps=10)
+        opt = torch.optim.AdamW(wam.parameters(), lr=1e-2)
+        obs = torch.randn(8, 4)
+        action = torch.randn(8, 2)
+        next_obs = obs + 0.5 * obs  # learnable target
+        for _ in range(200):
+            opt.zero_grad()
+            loss, _ = wam.training_loss(obs, next_obs, action)
+            loss.backward()
+            opt.step()
+        # After overfitting, prediction should be close
+        with torch.no_grad():
+            pred = wam.predict_next_state(obs, action, num_steps=10)
+            mse = ((pred - next_obs) ** 2).mean().item()
+        assert mse < 1.0
 

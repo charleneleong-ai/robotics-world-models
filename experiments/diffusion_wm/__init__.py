@@ -2,10 +2,16 @@
 
 Modules:
     - model: Conditional diffusion dynamics (MLP denoiser, DiT)
+    - world_action_model: WAM with parallel action + state denoising heads
     - train: Training loop with W&B logging
+    - train_wam: WAM training loop
     - dataset: Replay buffer dataset
     - eval: Evaluation metrics (MSE/MAE, action consistency, smoothness)
     - collect: Data collection from ManiSkill3 environments
+    - collector: ManiSkill3 rollout data collector
+    - serve: Ray Serve policy server
+    - eval_worker: Sim evaluation subprocess
+    - loop: Self-driving learning loop
     - domain_rand: Domain randomization for sim-to-real
     - video_metrics: Video-level evaluation (FVD, temporal LPIPS)
     - fidelity: Prediction calibration and divergence detection
@@ -15,6 +21,7 @@ Modules:
 """
 
 from .model import MLPDenoiser, DiffusionDynamics, cosine_beta_schedule
+from .world_action_model import WAMDenoiser, DiffusionWAM
 from .domain_rand import (
     DomainRandomizationConfig,
     PhysicsRandomization,
@@ -58,6 +65,9 @@ __all__ = [
     "MLPDenoiser",
     "DiffusionDynamics",
     "cosine_beta_schedule",
+    # WAM
+    "WAMDenoiser",
+    "DiffusionWAM",
     # Domain randomization
     "DomainRandomizationConfig",
     "PhysicsRandomization",
