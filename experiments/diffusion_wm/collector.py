@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
+import torch
 import typer
 
 
@@ -91,25 +92,48 @@ class ManiSkillCollector:
             else:
                 action = self._env.action_space.sample()
 
-            next_obs, reward, terminated, truncated, info = self._env.step(action)
+            # Convert tensors to numpy for stepping
+            if isinstance(obs, torch.Tensor):
+                obs_np = obs.cpu().numpy()
+            else:
+                obs_np = obs
+            if isinstance(action, torch.Tensor):
+                action_np = action.cpu().numpy()
+            else:
+                action_np = action
+
+            next_obs, reward, terminated, truncated, info = self._env.step(action_np)
             done = terminated | truncated
 
-            obs_list.append(_extract_state(obs))
-            action_list.append(action[0] if self.num_envs > 1 else action)
-            next_obs_list.append(_extract_state(next_obs))
-            reward_list.append(float(reward[0] if self.num_envs > 1 else reward))
+            # Handle scalar vs batched
+            if self.num_envs > 1:
+                is_done = bool(done.any()) if isinstance(done, torch.Tensor) else bool(done)
+                r = float(reward[0]) if isinstance(reward, torch.Tensor) else float(reward)
+            else:
+                is_done = bool(done) if not isinstance(done, torch.Tensor) else bool(done.item())
+                r = float(reward) if not isinstance(reward, torch.Tensor) else float(reward.item())
 
-            if done.any() if self.num_envs > 1 else done:
+            obs_list.append(_extract_state(obs_np))
+            action_list.append(action_np.flatten() if isinstance(action_np, np.ndarray) else np.array(action_np).flatten())
+            next_obs_list.append(_extract_state(next_obs))
+            reward_list.append(r)
+
+            if is_done:
                 break
 
             obs = next_obs
+
+        success = 0.0
+        if isinstance(info, dict) and "success" in info:
+            s = info["success"]
+            success = float(s[0] if isinstance(s, torch.Tensor) else s)
 
         return {
             "obs": np.stack(obs_list),
             "action": np.stack(action_list),
             "next_obs": np.stack(next_obs_list),
             "reward": np.array(reward_list, dtype=np.float32),
-            "success": float(info.get("success", 0)),
+            "success": success,
         }
 
     def collect_dataset(
@@ -201,8 +225,17 @@ class ManiSkillCollector:
             return data["obs"].shape[1], data["action"].shape[1]
 
 
-def _extract_state(obs: dict) -> np.ndarray:
-    """Extract flat state vector from ManiSkill3 observation dict."""
+def _extract_state(obs) -> np.ndarray:
+    """Extract flat state vector from ManiSkill3 observation.
+
+    ManiSkill3 v3.0+ returns a flat torch.Tensor directly.
+    Older versions return a nested dict with 'agent', 'extra' keys.
+    """
+    if isinstance(obs, torch.Tensor):
+        return obs.cpu().numpy().flatten().astype(np.float32)
+    if isinstance(obs, np.ndarray):
+        return obs.flatten().astype(np.float32)
+    # Legacy dict format
     parts = []
     if "agent" in obs:
         for key in ("qpos", "qvel"):
@@ -214,7 +247,6 @@ def _extract_state(obs: dict) -> np.ndarray:
                 parts.append(obs["extra"][key].flatten())
     if parts:
         return np.concatenate(parts).astype(np.float32)
-    # Fallback: flatten everything
     return _flatten_dict(obs).astype(np.float32)
 
 

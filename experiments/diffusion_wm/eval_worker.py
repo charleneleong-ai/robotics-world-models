@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import requests
+import torch
 import typer
 
 
@@ -42,8 +43,13 @@ def query_health(policy_url: str) -> bool:
         return False
 
 
-def _extract_state(obs: dict) -> np.ndarray:
-    """Extract flat state vector from ManiSkill3 observation dict."""
+def _extract_state(obs) -> np.ndarray:
+    """Extract flat state vector from ManiSkill3 observation."""
+    if isinstance(obs, torch.Tensor):
+        return obs.cpu().numpy().flatten().astype(np.float32)
+    if isinstance(obs, np.ndarray):
+        return obs.flatten().astype(np.float32)
+    # Legacy dict format
     parts = []
     if "agent" in obs:
         for key in ("qpos", "qvel"):
@@ -116,20 +122,24 @@ def run_eval(
             done = terminated | truncated
 
             trajectory["obs"].append(state)
-            trajectory["action"].append(action)
+            trajectory["action"].append(action.flatten() if isinstance(action, np.ndarray) else np.array(action).flatten())
             trajectory["next_obs"].append(_extract_state(next_obs))
-            trajectory["reward"].append(float(reward))
-            trajectory["done"].append(bool(done))
+            trajectory["reward"].append(float(reward) if not isinstance(reward, torch.Tensor) else float(reward.item()))
+            trajectory["done"].append(bool(done) if not isinstance(done, torch.Tensor) else bool(done.item()))
 
-            ep_reward += float(reward)
+            ep_reward += trajectory["reward"][-1]
             obs = next_obs
 
-            if done:
+            is_done = bool(done) if not isinstance(done, torch.Tensor) else bool(done.item())
+            if is_done:
                 break
 
         total_reward += ep_reward
         total_steps += len(trajectory["obs"])
-        success = float(info.get("success", 0))
+        success = 0.0
+        if isinstance(info, dict) and "success" in info:
+            s = info["success"]
+            success = float(s[0] if isinstance(s, torch.Tensor) else s)
         successes += success
 
         episodes.append({
