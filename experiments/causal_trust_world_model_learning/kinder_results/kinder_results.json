@@ -1,0 +1,47 @@
+{
+  "fine_tuning": {
+    "task_accuracies": [0.8706, 0.9316, 0.8916, 0.9019],
+    "avg_accuracies": 0.8989,
+    "bwt": 0.0378
+  },
+  "ewc": {
+    "task_accuracies": [0.9580, 0.9443, 0.8936, 0.8608],
+    "avg_accuracies": 0.9142,
+    "bwt": -0.0584
+  },
+  "experience_replay": {
+    "task_accuracies": [0.9922, 0.9731, 0.9370, 0.9297],
+    "avg_accuracies": 0.9580,
+    "bwt": -0.0456
+  },
+  "prioritized_replay": {
+    "task_accuracies": [0.9814, 0.9639, 0.8945, 0.9346],
+    "avg_accuracies": 0.9436,
+    "bwt": -0.0505
+  },
+  "curious_replay": {
+    "task_accuracies": [0.9971, 0.9712, 0.9097, 0.9360],
+    "avg_accuracies": 0.9535,
+    "bwt": -0.0581
+  },
+  "lwf": {
+    "task_accuracies": [0.9727, 0.1284, 0.3389, 0.6211],
+    "avg_accuracies": 0.5153,
+    "bwt": -0.6099
+  },
+  "packnet": {
+    "task_accuracies": [0.9233, 0.9497, 0.8892, 0.8555],
+    "avg_accuracies": 0.9044,
+    "bwt": -0.0252
+  },
+  "accuracy_trust_cl": {
+    "task_accuracies": [0.9478, 0.8740, 0.7495, 0.6338],
+    "avg_accuracies": 0.8013,
+    "bwt": -0.1953
+  },
+  "world_model_trust_cl": {
+    "task_accuracies": [0.9468, 0.8799, 0.7803, 0.6475],
+    "avg_accuracies": 0.8136,
+    "bwt": -0.1776
+  }
+}

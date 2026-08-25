@@ -23,6 +23,7 @@ _8 parallel `PegInsertionSide-v1` rollouts — the contact-rich peg-in-hole task
 - ✅ **PlugCharger dense reward** — diagnosis of RSSM representation wall (diffusion WM is the fix).
 - 🔄 **Project #1.5 (video world model)** — action-conditioned video prediction via LingBot/Cosmos post-training.
 - 🔄 **Diffusion WM (Milestone 1)** — from-scratch action-conditioned diffusion dynamics model replacing TD-MPC2's black-box dynamics head. Code complete, pending A100 deploy.
+- ✅ **Sim-to-Real Pipeline** — domain randomization, system identification, residual dynamics, video metrics, divergence detection. All 6 milestones complete with 51 tests passing.
 
 Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 + SAPIEN); logged to W&B project `wm-manip`.
 
@@ -38,6 +39,14 @@ Training runs on a datacenter **A100 80GB** (Ubuntu 22.04, CUDA 12, ManiSkill3 +
 | `experiments/diffusion_wm/model.py` | DDPM with MLPDenoiser (FiLM conditioning, cosine schedule) |
 | `experiments/diffusion_wm/train.py` | Training loop with W&B, checkpointing, resume |
 | `experiments/diffusion_wm/eval.py` | 1-step MSE + multi-step rollout divergence vs TD-MPC2 |
+| `experiments/diffusion_wm/domain_rand.py` | Domain randomization: physics, observation, action noise |
+| `experiments/diffusion_wm/video_metrics.py` | FVD, temporal LPIPS, IDM error, rotation/translation error |
+| `experiments/diffusion_wm/fidelity.py` | Prediction calibration, divergence detection, trust scoring |
+| `experiments/diffusion_wm/system_id.py` | System identification: calibrate sim params from real data |
+| `experiments/diffusion_wm/residual_dynamics.py` | Residual dynamics model for sim-to-real gap |
+| `experiments/diffusion_wm/transfer.py` | Complete 5-step sim-to-real transfer pipeline |
+| `experiments/diffusion_wm/run_transfer.py` | End-to-end pipeline runner with W&B logging |
+| `configs/schedules/sim_to_real_domain_rand.yaml` | DR sweep configs: conservative/moderate/aggressive/contact-focused |
 | `experiments/<tag>/<config>/results.jsonl` · `progress.png` | per-config results + chart |
 | `experiments/test_driver.py` | local (no-GPU) tests for the driver + plumbing |
 | `docs/experiments/<tag>/` | per-sweep writeups |
@@ -60,6 +69,58 @@ mise run pull        # pull A100 results.jsonl back for local render/report
 mise run render ppo  # progress.png for a config
 mise run report ppo  # writeup scaffold
 ```
+
+## Sim-to-Real Transfer Pipeline
+
+End-to-end pipeline for bridging the sim-to-real gap, based on Aljalbout et al. 2026.
+All modules are in `experiments/diffusion_wm/`.
+
+### Quick Start
+
+```bash
+# Run the full pipeline (synthetic data, ~4s)
+PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py
+
+# Skip W&B logging
+PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py --no-wandb
+
+# Run all 51 tests
+.venv/bin/python -m pytest experiments/diffusion_wm/test_model.py -v
+```
+
+### Pipeline Steps
+
+| Step | Module | What |
+|------|--------|------|
+| 1 | `domain_rand.py` | Physics/observation/action randomization during data collection |
+| 2 | `video_metrics.py` | FVD, temporal LPIPS, action consistency, rotation/translation error |
+| 3 | `fidelity.py` | Prediction calibration, divergence detection, trust scoring |
+| 4 | `system_id.py` | Calibrate sim parameters from real-world trajectories |
+| 5 | `residual_dynamics.py` | Learn residual correction for sim-to-real gap |
+| 6 | `transfer.py` | Integrate all steps into a complete pipeline |
+
+### Domain Randomization Sweep
+
+Test which randomization ranges work best:
+
+```bash
+# Conservative (tight ranges)
+PYTHONPATH=. .venv/bin/python experiments/diffusion_wm/run_transfer.py --task PlugCharger-v1
+
+# Sweep configs in configs/schedules/sim_to_real_domain_rand.yaml
+# Conservative | Moderate | Aggressive | Contact-focused | Noise-only | Physics-only
+```
+
+### W&B Metrics
+
+All metrics are logged to W&B project `wm-manip`:
+
+- `domain_rand/` — observation and action noise drift
+- `video/` — FVD, temporal LPIPS, IDM error, rotation/translation error
+- `divergence/` — EMA divergence, trust score, divergence step
+- `sysid/` — calibration loss, estimated physics parameters
+- `hybrid/` — uncertainty, residual magnitude
+- `transfer/` — hybrid vs sim MSE, improvement, mean trust
 
 ## Setup
 

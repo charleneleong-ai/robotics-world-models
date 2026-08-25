@@ -1,0 +1,37 @@
+{
+  "fine_tuning": {
+    "task_accuracies": [0.8912, 0.8256, 0.8854, 1.0],
+    "avg_accuracies": 0.9005,
+    "bwt": 0.0124
+  },
+  "ewc": {
+    "task_accuracies": [0.9049, 0.8328, 0.8959, 1.0],
+    "avg_accuracies": 0.9084,
+    "bwt": 0.0047
+  },
+  "experience_replay": {
+    "task_accuracies": [0.9305, 0.8730, 0.9078, 1.0],
+    "avg_accuracies": 0.9278,
+    "bwt": -0.0035
+  },
+  "prioritized_replay": {
+    "task_accuracies": [0.9068, 0.8107, 0.9062, 1.0],
+    "avg_accuracies": 0.9060,
+    "bwt": -0.0012
+  },
+  "curious_replay": {
+    "task_accuracies": [0.9119, 0.8637, 0.9025, 1.0],
+    "avg_accuracies": 0.9195,
+    "bwt": 0.0102
+  },
+  "accuracy_trust_cl": {
+    "task_accuracies": [0.9111, 0.8234, 0.8807, 1.0],
+    "avg_accuracies": 0.9038,
+    "bwt": -0.0098
+  },
+  "world_model_trust_cl": {
+    "task_accuracies": [0.9031, 0.8375, 0.8842, 0.9956],
+    "avg_accuracies": 0.9051,
+    "bwt": 0.0026
+  }
+}

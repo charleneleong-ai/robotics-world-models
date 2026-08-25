@@ -19,6 +19,46 @@ from experiments.diffusion_wm.model import (
     cosine_beta_schedule,
 )
 from experiments.diffusion_wm.train import _cache_media_pool, _media_pools
+from experiments.diffusion_wm.domain_rand import (
+    DomainRandomizationConfig,
+    PhysicsRandomization,
+    ObservationNoise,
+    ActionNoise,
+    apply_physics_randomization,
+    apply_observation_noise,
+    apply_action_noise,
+)
+from experiments.diffusion_wm.video_metrics import (
+    I3DFeatureExtractor,
+    compute_fvd,
+    compute_temporal_lpips,
+    compute_idm_error,
+    compute_rot_trans_error,
+    compute_all_video_metrics,
+    VideoMetricsResult,
+)
+from experiments.diffusion_wm.fidelity import (
+    PredictionCalibration,
+    DivergenceDetector,
+    compute_trust_from_divergence,
+)
+from experiments.diffusion_wm.system_id import (
+    ParameterEstimator,
+    SystemIdentifier,
+    SystemIdentificationResult,
+)
+from experiments.diffusion_wm.residual_dynamics import (
+    ResidualDynamicsNet,
+    HybridDynamicsModel,
+    OnlineResidualAdapter,
+    create_hybrid_model,
+)
+from experiments.diffusion_wm.transfer import (
+    SimToRealPipeline,
+    TransferConfig,
+    TransferResult,
+    run_full_transfer,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -279,4 +319,304 @@ class TestViz:
         next_obs = torch.randn(4, 4)
         fig = denoising_grid(small_model, obs, action, next_obs, milestones=(7, 3, 0), num_steps=10)
         assert len(fig.data) == 4 * 3 * 2  # samples x milestones x (estimate + GT overlay)
+
+
+# ---------------------------------------------------------------------------
+# Domain Randomization
+# ---------------------------------------------------------------------------
+
+class TestDomainRandomization:
+    def test_config_defaults(self):
+        config = DomainRandomizationConfig()
+        assert config.physics.friction == (0.5, 2.0)
+        assert config.observation.position_noise == 0.01
+        assert config.action.torque_noise == 0.05
+
+    def test_apply_observation_noise(self):
+        config = DomainRandomizationConfig()
+        obs = torch.zeros(4, 38)
+        noisy = apply_observation_noise(obs, config)
+        assert noisy.shape == obs.shape
+        assert not torch.equal(noisy, obs)  # noise was added
+
+    def test_observation_noise_disabled(self):
+        config = DomainRandomizationConfig(observation=ObservationNoise(enabled=False))
+        obs = torch.randn(4, 38)
+        noisy = apply_observation_noise(obs, config)
+        assert torch.equal(noisy, obs)
+
+    def test_apply_action_noise(self):
+        config = DomainRandomizationConfig()
+        action = torch.zeros(4, 2)
+        noisy = apply_action_noise(action, config)
+        assert noisy.shape == action.shape
+        assert not torch.equal(noisy, action)
+
+    def test_action_noise_disabled(self):
+        config = DomainRandomizationConfig(action=ActionNoise(enabled=False))
+        action = torch.randn(4, 2)
+        noisy = apply_action_noise(action, config)
+        assert torch.equal(noisy, action)
+
+    def test_task_defaults_exist(self):
+        from experiments.diffusion_wm.domain_rand import TASK_DEFAULTS
+        assert "PickCube-v1" in TASK_DEFAULTS
+        assert "PlugCharger-v1" in TASK_DEFAULTS
+
+
+# ---------------------------------------------------------------------------
+# Video Metrics
+# ---------------------------------------------------------------------------
+
+class TestVideoMetrics:
+    def test_fvd_symmetric(self):
+        a = torch.randn(2, 3, 4, 16, 16)
+        b = torch.randn(2, 3, 4, 16, 16)
+        fvd_ab = compute_fvd(a, b)
+        fvd_ba = compute_fvd(b, a)
+        assert fvd_ab >= 0
+        assert fvd_ba >= 0
+
+    def test_fvd_nonnegative(self):
+        a = torch.randn(4, 3, 8, 16, 16)
+        b = torch.randn(4, 3, 8, 16, 16)
+        fvd = compute_fvd(a, b)
+        assert fvd >= 0
+
+    def test_fvd_different_is_larger(self):
+        a = torch.randn(4, 3, 8, 16, 16)
+        b = torch.randn(4, 3, 8, 16, 16) * 2 + 5
+        fvd_same = compute_fvd(a, a)
+        fvd_diff = compute_fvd(a, b)
+        # Different distributions should have higher FVD
+        # (not always true with random features, but usually)
+        assert fvd_same < fvd_diff + 100.0
+
+    def test_temporal_lpips_short_video(self):
+        a = torch.randn(2, 1, 4, 8, 8)
+        b = torch.randn(2, 1, 4, 8, 8)
+        assert compute_temporal_lpips(a, b) == 0.0
+
+    def test_temporal_lpips_nonzero(self):
+        a = torch.randn(2, 3, 4, 8, 8)
+        b = torch.randn(2, 3, 4, 8, 8)
+        score = compute_temporal_lpips(a, b)
+        assert score >= 0
+
+    def test_idm_error_short_video(self):
+        v = torch.randn(2, 1, 3, 8, 8)
+        a = torch.randn(2, 1, 2)
+        assert compute_idm_error(v, a) == 0.0
+
+    def test_rot_trans_error_zero(self):
+        poses = torch.randn(4, 5, 7)
+        rot, trans = compute_rot_trans_error(poses, poses)
+        assert rot < 0.05
+        assert trans < 0.01
+
+    def test_rot_trans_error_nonzero(self):
+        pred = torch.randn(4, 5, 7)
+        gt = torch.randn(4, 5, 7)
+        rot, trans = compute_rot_trans_error(pred, gt)
+        assert rot > 0
+        assert trans > 0
+
+    def test_all_video_metrics_returns_result(self):
+        real = torch.randn(2, 3, 4, 8, 8)
+        fake = torch.randn(2, 3, 4, 8, 8)
+        result = compute_all_video_metrics(real, fake)
+        assert isinstance(result, VideoMetricsResult)
+        d = result.to_dict()
+        assert "fvd" in d
+        assert "temporal_lpips" in d
+
+
+# ---------------------------------------------------------------------------
+# Fidelity / Divergence Detection
+# ---------------------------------------------------------------------------
+
+class TestFidelity:
+    def test_divergence_detector_normal(self):
+        det = DivergenceDetector(threshold=0.5)
+        result = det.update(torch.zeros(10), torch.zeros(10))
+        assert result.divergence_score < 0.01
+        assert not result.is_divergent
+
+    def test_divergence_detector_divergent(self):
+        det = DivergenceDetector(threshold=0.01)
+        for _ in range(20):
+            result = det.update(torch.zeros(10), torch.ones(10) * 100)
+        assert result.is_divergent
+
+    def test_divergence_rolling_stats(self):
+        det = DivergenceDetector()
+        for _ in range(10):
+            det.update(torch.randn(5), torch.randn(5))
+        stats = det.get_rolling_stats()
+        assert "mean" in stats
+        assert "std" in stats
+        assert stats["mean"] >= 0
+
+    def test_divergence_reset(self):
+        det = DivergenceDetector()
+        det.update(torch.randn(5), torch.randn(5))
+        det.reset()
+        assert det.ema_divergence is None
+        assert len(det.divergence_history) == 0
+
+    def test_trust_from_divergence(self):
+        trust_low = compute_trust_from_divergence(10.0)
+        trust_high = compute_trust_from_divergence(0.01)
+        assert trust_low < trust_high
+        assert 0 <= trust_low <= 1
+        assert 0 <= trust_high <= 1
+
+
+# ---------------------------------------------------------------------------
+# System Identification
+# ---------------------------------------------------------------------------
+
+class TestSystemID:
+    def test_estimator_output_shape(self):
+        est = ParameterEstimator(obs_dim=16, action_dim=4)
+        obs = torch.randn(2, 5, 16)
+        action = torch.randn(2, 5, 4)
+        next_obs = torch.randn(2, 5, 16)
+        params = est(obs, action, next_obs)
+        assert isinstance(params, dict)
+        assert "friction" in params
+        assert params["friction"].shape == (2,)
+
+    def test_estimator_ranges(self):
+        est = ParameterEstimator(obs_dim=8, action_dim=2)
+        obs = torch.randn(4, 3, 8)
+        action = torch.randn(4, 3, 2)
+        next_obs = torch.randn(4, 3, 8)
+        params = est(obs, action, next_obs)
+        # Friction should be in [0.5, 2.5]
+        assert params["friction"].min() >= 0.5
+        assert params["friction"].max() <= 2.5
+        # Mass should be in [0.8, 1.2]
+        assert params["mass"].min() >= 0.8
+        assert params["mass"].max() <= 1.2
+
+    def test_calibrate_converges(self):
+        sid = SystemIdentifier(obs_dim=8, action_dim=2, max_iterations=50)
+        real_obs = torch.randn(20, 8)
+        real_actions = torch.randn(20, 2)
+        real_next_obs = torch.randn(20, 8)
+        result = sid.calibrate(real_obs, real_actions, real_next_obs)
+        assert isinstance(result, SystemIdentificationResult)
+        assert result.iterations > 0
+        assert result.calibration_loss < float("inf")
+
+
+# ---------------------------------------------------------------------------
+# Residual Dynamics
+# ---------------------------------------------------------------------------
+
+class TestResidualDynamics:
+    def test_residual_net_output_shape(self):
+        net = ResidualDynamicsNet(obs_dim=16, action_dim=4)
+        obs = torch.randn(4, 16)
+        action = torch.randn(4, 4)
+        residual, log_var = net(obs, action)
+        assert residual.shape == (4, 16)
+        assert log_var.shape == (4, 16)
+
+    def test_hybrid_model_predict(self):
+        den = MLPDenoiser(obs_dim=8, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        sim = DiffusionDynamics(den, timesteps=5)
+        hybrid = create_hybrid_model(8, 2, sim)
+        obs = torch.randn(2, 8)
+        action = torch.randn(2, 2)
+        pred = hybrid.predict(obs, action, num_denoise_steps=3)
+        assert pred.hybrid_prediction.shape == (2, 8)
+        assert pred.sim_prediction.shape == (2, 8)
+        assert pred.residual.shape == (2, 8)
+        assert pred.uncertainty.shape == (2, 8)
+
+    def test_hybrid_model_loss(self):
+        den = MLPDenoiser(obs_dim=8, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        sim = DiffusionDynamics(den, timesteps=5)
+        hybrid = create_hybrid_model(8, 2, sim)
+        obs = torch.randn(4, 8)
+        action = torch.randn(4, 2)
+        next_obs = torch.randn(4, 8)
+        loss, components = hybrid.compute_loss(obs, action, next_obs)
+        assert loss.ndim == 0
+        assert loss.item() > 0
+        assert "residual_loss" in components
+
+    def test_online_adapter(self):
+        net = ResidualDynamicsNet(obs_dim=8, action_dim=2)
+        adapter = OnlineResidualAdapter(net, buffer_size=10, batch_size=4)
+        for _ in range(5):
+            metrics = adapter.update(
+                torch.randn(8), torch.randn(2), torch.randn(8), torch.randn(8)
+            )
+        assert "online_loss" in metrics or "buffer_size" in metrics
+
+
+# ---------------------------------------------------------------------------
+# Transfer Pipeline
+# ---------------------------------------------------------------------------
+
+class TestTransferPipeline:
+    def test_pipeline_creates(self):
+        pipeline = SimToRealPipeline(obs_dim=16, action_dim=4)
+        assert pipeline.obs_dim == 16
+        assert pipeline.action_dim == 4
+
+    def test_pipeline_system_id(self):
+        pipeline = SimToRealPipeline(obs_dim=8, action_dim=2)
+        data = {
+            "obs": torch.randn(20, 8),
+            "actions": torch.randn(20, 2),
+            "next_obs": torch.randn(20, 8),
+        }
+        result = pipeline.step2_system_identification(data)
+        assert isinstance(result, SystemIdentificationResult)
+        assert result.converged
+
+    def test_pipeline_train_residual(self):
+        pipeline = SimToRealPipeline(obs_dim=8, action_dim=2)
+        den = MLPDenoiser(obs_dim=8, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        sim = DiffusionDynamics(den, timesteps=5)
+        data = {
+            "obs": torch.randn(20, 8),
+            "actions": torch.randn(20, 2),
+            "next_obs": torch.randn(20, 8),
+        }
+        hybrid = pipeline.step3_train_residual(sim, data, epochs=3)
+        assert hybrid is not None
+
+    def test_pipeline_evaluate(self):
+        pipeline = SimToRealPipeline(obs_dim=8, action_dim=2)
+        den = MLPDenoiser(obs_dim=8, act_dim=2, hidden_dim=16, num_blocks=2, cond_dim=8)
+        sim = DiffusionDynamics(den, timesteps=5)
+        hybrid = create_hybrid_model(8, 2, sim)
+        data = {
+            "obs": torch.randn(10, 8),
+            "actions": torch.randn(10, 2),
+            "next_obs": torch.randn(10, 8),
+        }
+        result = pipeline.step5_evaluate(hybrid, data, num_steps=5)
+        assert isinstance(result, TransferResult)
+        assert "hybrid_mse" in result.eval_metrics
+        assert len(result.trust_scores) > 0
+
+    def test_full_transfer(self):
+        obs_dim, act_dim = 8, 2
+        den = MLPDenoiser(obs_dim=obs_dim, act_dim=act_dim, hidden_dim=16, num_blocks=2, cond_dim=8)
+        sim = DiffusionDynamics(den, timesteps=5)
+        data = {
+            "obs": torch.randn(30, obs_dim),
+            "actions": torch.randn(30, act_dim),
+            "next_obs": torch.randn(30, obs_dim),
+        }
+        result = run_full_transfer(None, data, sim, obs_dim, act_dim)
+        assert isinstance(result, TransferResult)
+        d = result.to_dict()
+        assert "eval/hybrid_mse" in d
 

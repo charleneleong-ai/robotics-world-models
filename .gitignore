@@ -20,3 +20,8 @@ logs/
 data/
 checkpoints/
 eval_results/
+
+# experiment results + local logs
+wandb/
+*.bak
+split_*.json

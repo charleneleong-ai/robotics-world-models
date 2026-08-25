@@ -1,0 +1,22 @@
+{
+  "fine_tuning": {
+    "task_accuracies": [0.9369, 0.7088, 0.8408, 1.0],
+    "avg_accuracies": 0.8716,
+    "bwt": -0.0870
+  },
+  "ewc": {
+    "task_accuracies": [0.9369, 0.7291, 0.8375, 1.0],
+    "avg_accuracies": 0.8759,
+    "bwt": -0.0814
+  },
+  "experience_replay": {
+    "task_accuracies": [0.9350, 0.8520, 0.9002, 1.0],
+    "avg_accuracies": 0.9218,
+    "bwt": -0.0176
+  },
+  "improved_world_model_trust_cl": {
+    "task_accuracies": [0.9395, 0.7604, 0.8457, 1.0],
+    "avg_accuracies": 0.8864,
+    "bwt": -0.0708
+  }
+}
