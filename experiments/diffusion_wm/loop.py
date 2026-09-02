@@ -388,7 +388,8 @@ class SelfDrivingLoop:
         # 5. FILTER
         print("\n[5/5] Filtering episodes...")
         eval_results = self._filter(eval_results, round_num)
-        kept = eval_results["filter_stats"]["kept"]
+        kept_episodes = eval_results["kept_episodes"]
+        kept = len(kept_episodes)
         total = eval_results["filter_stats"]["total"]
         print(f"  Kept {kept}/{total} episodes "
               f"(trust>={self.config.trust_threshold}, reward>={self.config.reward_threshold})")
@@ -409,7 +410,7 @@ class SelfDrivingLoop:
         }
         self.round_history.append(summary)
 
-        return merged, kept
+        return merged, kept_episodes
 
     def run(self) -> list[dict]:
         """Run the full loop."""
