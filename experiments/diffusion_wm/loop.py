@@ -224,6 +224,11 @@ class SelfDrivingLoop:
         if len(kept) < self.config.min_keep:
             kept = [s["episode"] for s in scored[:self.config.min_keep]]
 
+        # Debug: show trust distribution
+        trusts = [s["trust"] for s in scored]
+        print(f"  Trust stats: min={min(trusts):.3f}, max={max(trusts):.3f}, "
+              f"mean={sum(trusts)/len(trusts):.3f}, median={sorted(trusts)[len(trusts)//2]:.3f}")
+
         eval_results["kept_episodes"] = kept
         eval_results["filter_stats"] = {
             "total": n,
@@ -237,33 +242,37 @@ class SelfDrivingLoop:
     def _compute_trust_for_episode(self, ep: dict, round_num: int, model: DiffusionWAM | None) -> float:
         """Compute trust score for a single episode."""
         if model is None:
-            return 1.0  # No model = default trust
+            return 1.0
 
         traj_path = self._eval_dir(round_num) / f"episode_{ep['episode']:04d}.pkl"
         if not traj_path.exists():
             return 0.5
 
-        import pickle
-        with open(traj_path, "rb") as f:
-            traj = pickle.load(f)
+        try:
+            import pickle
+            with open(traj_path, "rb") as f:
+                traj = pickle.load(f)
 
-        if not traj["obs"]:
+            if not traj["obs"]:
+                return 0.5
+
+            obs = np.stack(traj["obs"])
+            action = np.stack(traj["action"])
+            next_obs = np.stack(traj["next_obs"])
+
+            device = next(model.parameters()).device
+            obs_t = torch.tensor(obs, dtype=torch.float32, device=device)
+            action_t = torch.tensor(action, dtype=torch.float32, device=device)
+            next_obs_t = torch.tensor(next_obs, dtype=torch.float32, device=device)
+
+            with torch.no_grad():
+                predicted_next = model.predict_next_state(obs_t, action_t, num_steps=min(10, self.config.inference_steps))
+                mse = ((predicted_next - next_obs_t) ** 2).mean().item()
+
+            return max(0.0, 1.0 - mse)
+        except Exception as e:
+            print(f"  Trust computation failed for ep {ep['episode']}: {e}")
             return 0.5
-
-        obs = np.stack(traj["obs"])
-        action = np.stack(traj["action"])
-        next_obs = np.stack(traj["next_obs"])
-
-        device = next(model.parameters()).device
-        obs_t = torch.tensor(obs, dtype=torch.float32, device=device)
-        action_t = torch.tensor(action, dtype=torch.float32, device=device)
-        next_obs_t = torch.tensor(next_obs, dtype=torch.float32, device=device)
-
-        with torch.no_grad():
-            predicted_next = model.predict_next_state(obs_t, action_t, num_steps=self.config.inference_steps)
-            mse = ((predicted_next - next_obs_t) ** 2).mean().item()
-
-        return max(0.0, 1.0 - mse)
 
     def _merge_datasets(self, existing: Path | None, new_data: Path) -> Path:
         """Merge existing and new data directories."""
