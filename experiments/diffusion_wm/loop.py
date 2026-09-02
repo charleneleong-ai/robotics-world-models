@@ -37,8 +37,10 @@ class LoopConfig:
     num_rounds: int = 5
     episodes_per_round: int = 100
     train_steps_per_round: int = 10_000
-    trust_threshold: float = 0.7
-    reward_threshold: float = 0.5
+    trust_threshold: float = 0.1
+    reward_threshold: float = 0.0
+    keep_top_pct: float = 0.5
+    min_keep: int = 10
     checkpoint_dir: Path = Path("checkpoints/diffusion_wm")
     eval_dir: Path = Path("eval_results")
     port: int = 8000
@@ -188,59 +190,80 @@ class SelfDrivingLoop:
         results_path = eval_dir / "results.json"
         return json.loads(results_path.read_text())
 
-    def _filter(self, eval_results: dict) -> dict:
-        """Filter episodes by trust score AND reward."""
-        kept = []
-        for ep in eval_results["episodes"]:
-            # Trust: check if episode trajectories diverge from WM predictions
-            traj_path = self._eval_dir(self.config.round_num) / f"episode_{ep['episode']:04d}.pkl"
-            if traj_path.exists():
-                import pickle
-                with open(traj_path, "rb") as f:
-                    traj = pickle.load(f)
+    def _filter(self, eval_results: dict, round_num: int) -> dict:
+        """Filter episodes: percentile-based reward + trust, with minimum keep floor."""
+        episodes = eval_results["episodes"]
+        n = len(episodes)
+        if n == 0:
+            eval_results["kept_episodes"] = []
+            eval_results["filter_stats"] = {"total": 0, "kept": 0}
+            return eval_results
 
-                trust_score = self._compute_trust(traj)
-                reward = ep["reward"]
+        # Load model once for trust computation
+        model_path = self._round_dir(round_num) / f"wam_round_{round_num:02d}_{self.config.task}" / "best.pt"
+        if not model_path.exists():
+            model_path = self._round_dir(round_num) / f"wam_round_{round_num:02d}_{self.config.task}" / "final.pt"
+        trust_model = self._load_model(model_path) if model_path.exists() else None
 
-                if trust_score >= self.config.trust_threshold and reward >= self.config.reward_threshold:
-                    kept.append(ep["episode"])
+        # Score all episodes
+        scored = []
+        for ep in episodes:
+            reward = ep["reward"]
+            trust = self._compute_trust_for_episode(ep, round_num, trust_model)
+            scored.append({"episode": ep["episode"], "reward": reward, "trust": trust})
+
+        # Percentile-based: keep top keep_top_pct by reward, with trust floor
+        scored.sort(key=lambda x: x["reward"], reverse=True)
+        keep_n = max(self.config.min_keep, int(n * self.config.keep_top_pct))
+        candidates = scored[:keep_n]
+
+        # Apply trust threshold as a soft filter
+        kept = [s["episode"] for s in candidates if s["trust"] >= self.config.trust_threshold]
+
+        # Minimum keep floor: if trust filtered too aggressively, relax and keep top by reward
+        if len(kept) < self.config.min_keep:
+            kept = [s["episode"] for s in scored[:self.config.min_keep]]
 
         eval_results["kept_episodes"] = kept
         eval_results["filter_stats"] = {
-            "total": len(eval_results["episodes"]),
+            "total": n,
             "kept": len(kept),
             "trust_threshold": self.config.trust_threshold,
             "reward_threshold": self.config.reward_threshold,
+            "keep_top_pct": self.config.keep_top_pct,
         }
         return eval_results
 
-    def _compute_trust(self, trajectory: dict) -> float:
-        """Compute trust score for a trajectory using WM predictions."""
-        if not trajectory["obs"]:
-            return 0.0
+    def _compute_trust_for_episode(self, ep: dict, round_num: int, model: DiffusionWAM | None) -> float:
+        """Compute trust score for a single episode."""
+        if model is None:
+            return 1.0  # No model = default trust
 
-        obs = np.stack(trajectory["obs"])
-        action = np.stack(trajectory["action"])
-        next_obs = np.stack(trajectory["next_obs"])
+        traj_path = self._eval_dir(round_num) / f"episode_{ep['episode']:04d}.pkl"
+        if not traj_path.exists():
+            return 0.5
 
-        # Compute prediction error as a proxy for trust
-        obs_t = torch.tensor(obs, dtype=torch.float32)
-        action_t = torch.tensor(action, dtype=torch.float32)
-        next_obs_t = torch.tensor(next_obs, dtype=torch.float32)
+        import pickle
+        with open(traj_path, "rb") as f:
+            traj = pickle.load(f)
 
-        # Load current model for trust computation
-        model_path = self._round_dir(self.config.round_num) / f"wam_round_{self.config.round_num:02d}_{self.config.task}" / "best.pt"
-        if not model_path.exists():
-            return 0.5  # Default trust if no model
+        if not traj["obs"]:
+            return 0.5
 
-        model = self._load_model(model_path)
+        obs = np.stack(traj["obs"])
+        action = np.stack(traj["action"])
+        next_obs = np.stack(traj["next_obs"])
+
+        device = next(model.parameters()).device
+        obs_t = torch.tensor(obs, dtype=torch.float32, device=device)
+        action_t = torch.tensor(action, dtype=torch.float32, device=device)
+        next_obs_t = torch.tensor(next_obs, dtype=torch.float32, device=device)
+
         with torch.no_grad():
             predicted_next = model.predict_next_state(obs_t, action_t, num_steps=self.config.inference_steps)
             mse = ((predicted_next - next_obs_t) ** 2).mean().item()
 
-        # Trust: 1.0 for perfect prediction, decays with error
-        trust = max(0.0, 1.0 - mse)
-        return trust
+        return max(0.0, 1.0 - mse)
 
     def _merge_datasets(self, existing: Path | None, new_data: Path) -> Path:
         """Merge existing and new data directories."""
@@ -275,18 +298,29 @@ class SelfDrivingLoop:
 
     def _load_model(self, checkpoint_path: Path) -> DiffusionWAM:
         """Load WAM from checkpoint."""
-        import torch
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         cfg = ckpt.get("config", {})
-        model = DiffusionWAM(
-            obs_dim=cfg.get("obs_dim", 34),
-            act_dim=cfg.get("act_dim", 7),
-            hidden_dim=cfg.get("hidden_dim", 512),
-            num_blocks=cfg.get("num_blocks", 6),
-            timesteps=cfg.get("diffusion_timesteps", 1000),
-        ).to(device)
-        model.load_state_dict(ckpt["model"])
+        model_sd = ckpt["model"]
+        if "denoiser" in model_sd:
+            # DiffusionWAM nested state_dict
+            model = DiffusionWAM(
+                obs_dim=model_sd.get("obs_dim", cfg.get("obs_dim", 42)),
+                act_dim=model_sd.get("act_dim", cfg.get("act_dim", 7)),
+                hidden_dim=cfg.get("hidden_dim", 512),
+                num_blocks=cfg.get("num_blocks", 6),
+                timesteps=model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
+            ).to(device)
+            model.load_state_dict(model_sd)
+        else:
+            model = DiffusionWAM(
+                obs_dim=cfg.get("obs_dim", 42),
+                act_dim=cfg.get("act_dim", 7),
+                hidden_dim=cfg.get("hidden_dim", 512),
+                num_blocks=cfg.get("num_blocks", 6),
+                timesteps=cfg.get("diffusion_timesteps", 1000),
+            ).to(device)
+            model.load_state_dict(model_sd)
         model.eval()
         return model
 
@@ -333,7 +367,7 @@ class SelfDrivingLoop:
 
         # 5. FILTER
         print("\n[5/5] Filtering episodes...")
-        eval_results = self._filter(eval_results)
+        eval_results = self._filter(eval_results, round_num)
         kept = eval_results["filter_stats"]["kept"]
         total = eval_results["filter_stats"]["total"]
         print(f"  Kept {kept}/{total} episodes "
@@ -365,6 +399,8 @@ class SelfDrivingLoop:
         print(f"  Train steps/round: {self.config.train_steps_per_round}")
         print(f"  Trust threshold: {self.config.trust_threshold}")
         print(f"  Reward threshold: {self.config.reward_threshold}")
+        print(f"  Keep top %: {self.config.keep_top_pct}")
+        print(f"  Min keep: {self.config.min_keep}")
 
         dataset = None
         for round_num in range(self.config.num_rounds):
@@ -388,8 +424,10 @@ def main(
     num_rounds: int = typer.Option(5, help="Number of loop rounds"),
     episodes_per_round: int = typer.Option(100, help="Episodes per round"),
     train_steps_per_round: int = typer.Option(10_000, help="Training steps per round"),
-    trust_threshold: float = typer.Option(0.7, help="Trust score threshold for filtering"),
-    reward_threshold: float = typer.Option(0.5, help="Reward threshold for filtering"),
+    trust_threshold: float = typer.Option(0.1, help="Trust score threshold for filtering"),
+    reward_threshold: float = typer.Option(0.0, help="Reward threshold for filtering"),
+    keep_top_pct: float = typer.Option(0.5, help="Keep top % of episodes by reward"),
+    min_keep: int = typer.Option(10, help="Minimum episodes to keep per round"),
     checkpoint_dir: Path = typer.Option(Path("checkpoints/diffusion_wm")),
     port: int = typer.Option(8000, help="Policy server port"),
     seed: int = typer.Option(42),
@@ -401,6 +439,8 @@ def main(
         train_steps_per_round=train_steps_per_round,
         trust_threshold=trust_threshold,
         reward_threshold=reward_threshold,
+        keep_top_pct=keep_top_pct,
+        min_keep=min_keep,
         checkpoint_dir=checkpoint_dir,
         port=port,
         seed=seed,
