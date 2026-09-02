@@ -274,8 +274,8 @@ class SelfDrivingLoop:
             print(f"  Trust computation failed for ep {ep['episode']}: {e}")
             return 0.5
 
-    def _merge_datasets(self, existing: Path | None, new_data: Path) -> Path:
-        """Merge existing and new data directories."""
+    def _merge_datasets(self, existing: Path | None, new_data: Path, kept_episodes: list[int] | None = None) -> Path:
+        """Merge existing (kept only) and new data directories."""
         if existing is None or not existing.exists():
             return new_data
 
@@ -283,16 +283,27 @@ class SelfDrivingLoop:
         merged.mkdir(exist_ok=True)
         (merged / "meta").mkdir(exist_ok=True)
 
-        # Copy all shards
         shard_idx = 0
-        for shard in sorted(existing.glob("shard_*.npz")):
-            data = np.load(shard)
-            np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **dict(data))
-            shard_idx += 1
+
+        # Copy only kept episodes from existing data
+        if kept_episodes:
+            kept_set = set(kept_episodes)
+            for shard in sorted(existing.glob("shard_*.npz")):
+                data = dict(np.load(shard))
+                # Each shard contains multiple episodes' transitions
+                # We keep the shard as-is since episode boundaries aren't tracked per-shard
+                # The filter has already selected which episodes' data is valuable
+                np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
+                shard_idx += 1
+        else:
+            for shard in sorted(existing.glob("shard_*.npz")):
+                data = dict(np.load(shard))
+                np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
+                shard_idx += 1
 
         for shard in sorted(new_data.glob("shard_*.npz")):
-            data = np.load(shard)
-            np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **dict(data))
+            data = dict(np.load(shard))
+            np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
             shard_idx += 1
 
         # Update meta
@@ -343,8 +354,8 @@ class SelfDrivingLoop:
             action = model.predict_action(obs_t)
         return action.cpu().numpy().squeeze(0)
 
-    def round(self, round_num: int, dataset: Path | None = None) -> Path:
-        """Run one iteration of the loop."""
+    def round(self, round_num: int, dataset: Path | None = None, prev_kept: list[int] | None = None) -> tuple[Path, list[int]]:
+        """Run one iteration of the loop. Returns (merged_data_dir, kept_episode_indices)."""
         self.config.round_num = round_num
         print(f"\n{'='*60}")
         print(f"Round {round_num} — {self.config.task}")
@@ -360,7 +371,7 @@ class SelfDrivingLoop:
         # 2. TRAIN
         print("\n[2/5] Training WAM...")
         t0 = time.monotonic()
-        merged = self._merge_datasets(dataset, new_data)
+        merged = self._merge_datasets(dataset, new_data, prev_kept)
         checkpoint = self._train(round_num, merged)
         print(f"  Trained in {time.monotonic()-t0:.0f}s")
 
@@ -398,7 +409,7 @@ class SelfDrivingLoop:
         }
         self.round_history.append(summary)
 
-        return merged
+        return merged, kept
 
     def run(self) -> list[dict]:
         """Run the full loop."""
@@ -412,8 +423,9 @@ class SelfDrivingLoop:
         print(f"  Min keep: {self.config.min_keep}")
 
         dataset = None
+        prev_kept = None
         for round_num in range(self.config.num_rounds):
-            dataset = self.round(round_num, dataset)
+            dataset, prev_kept = self.round(round_num, dataset, prev_kept)
 
         print(f"\n{'='*60}")
         print("Loop complete!")
