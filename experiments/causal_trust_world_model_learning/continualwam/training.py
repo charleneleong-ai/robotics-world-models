@@ -97,6 +97,8 @@ def train_bc_trust(
     all_acts = np.concatenate([d["acts"] for d in demos])
     obs_t = torch.tensor(all_obs, dtype=torch.float32).to(device)
     act_t = torch.tensor(all_acts, dtype=torch.float32).to(device)
+    if isinstance(trust_scorer, nn.Module):
+        trust_scorer = trust_scorer.to(device)
     wm.eval()
     policy.train()
     for _ in range(epochs):
