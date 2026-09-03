@@ -124,6 +124,60 @@ def sweep(
 
 
 @app.command()
+def heldout(
+    suite: Annotated[str, typer.Option("--suite", "-s", help="Suite name")] = "spatial",
+    backbone: Annotated[str, typer.Option("--backbone", "-b", help="Backbone")] = "mlp",
+    seeds: Annotated[int, typer.Option("--seeds", "-n", help="Number of seeds")] = 3,
+    output_dir: Annotated[Path, typer.Option("--output", "-o", help="Output directory")] = Path("."),
+):
+    """Run held-out cross-task evaluation."""
+    import torch.nn.functional as F
+
+    suite_dir = SUITE_DIRS[suite]
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    typer.echo(f"\n{'='*60}")
+    typer.echo(f"  Held-Out Cross-Task Evaluation")
+    typer.echo(f"  Suite: {suite}, Backbone: {backbone}")
+    typer.echo(f"{'='*60}")
+
+    demos = load_demos(suite_dir, 10, 5)
+    typer.echo(f"Loaded {len(demos)} tasks")
+
+    obs_dim, act_dim = demos[0][0]["obs"].shape[-1], demos[0][0]["acts"].shape[-1]
+    device = "cuda"
+    results = []
+
+    for seed in range(seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        t0 = time.time()
+
+        wm = get_backbone(backbone, obs_dim, act_dim).to(device)
+        train_wm(wm, demos[0], 20, device=device)
+
+        wm.eval()
+        with torch.no_grad():
+            test_demos = demos[0][3:] if len(demos[0]) > 3 else demos[0][-1:]
+            all_errors = []
+            for demo in test_demos:
+                o = torch.tensor(demo["obs"], dtype=torch.float32).unsqueeze(0).to(device)
+                a = torch.tensor(demo["acts"], dtype=torch.float32).unsqueeze(0).to(device)
+                pred = wm.predict_error(o, a, o)
+                all_errors.append(pred.mean().item())
+            error = np.mean(all_errors)
+        results.append(error)
+        typer.echo(f"  Seed {seed}: error={error:.4f} ({time.time()-t0:.0f}s)")
+
+    arr = np.array(results)
+    stats = {"mean": float(arr.mean()), "std": float(arr.std()), "seeds": results}
+    out_path = output_dir / "heldout_results.json"
+    with open(out_path, "w") as f:
+        json.dump(stats, f, indent=2)
+    typer.echo(f"\nSaved to {out_path}")
+
+
+@app.command()
 def decoder_trust(
     suite: Annotated[str, typer.Option("--suite", "-s", help="Suite name")] = "spatial",
     seeds: Annotated[int, typer.Option("--seeds", "-n", help="Number of seeds")] = 5,
