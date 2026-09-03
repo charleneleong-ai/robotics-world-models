@@ -1,0 +1,26 @@
+# ContinualWAM sweep configuration
+
+suite_dir: /home/ubuntu/robotics_world_models/LIBERO/libero_spatial
+n_tasks: 10
+max_demos: 5
+n_seeds: 5
+wm_epochs: 20
+bc_epochs: 50
+batch_size: 64
+lr: 1.0e-3
+device: cuda
+
+backbones:
+  - mlp
+  - rssm
+  - jepa
+  - dreamerv3
+  - diffusion
+  - transformer
+
+trust_methods:
+  - ema
+  - multi_step
+  - ensemble
+
+output_dir: .
