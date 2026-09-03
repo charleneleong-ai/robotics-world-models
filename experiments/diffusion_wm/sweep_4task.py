@@ -40,7 +40,7 @@ def run_sweep():
             "--task", task,
             "--num-rounds", str(ROUNDS),
             "--episodes-per-round", str(EPISODES_PER_ROUND),
-            "--demo-dir", f"/tmp/mp_demos/{task}/",
+            "--demo-dir", "/tmp/mp_demos/",
         ]
         
         log_file = log_dir / f"sweep_{int(time.time())}.log"
