@@ -263,6 +263,122 @@ def _flatten_dict(d: dict, prefix: str = "") -> np.ndarray:
     return np.concatenate(parts) if parts else np.array([])
 
 
+def load_demonstration_data(
+    task: str,
+    demo_dir: Path,
+    max_episodes: int = 100,
+    max_steps: int = 200,
+    seed: int = 42,
+) -> Path:
+    """Load ManiSkill demonstration data by replaying expert actions.
+
+    Downloads demos if not present, replays actions in the environment,
+    and saves transitions in the standard format for TransitionDataset.
+
+    Args:
+        task: ManiSkill3 task ID (e.g., 'PickCube-v1')
+        demo_dir: Directory containing downloaded demo H5 files
+        max_episodes: Maximum number of episodes to load
+        max_steps: Maximum steps per episode (truncates longer demos)
+        seed: Random seed for environment reset
+
+    Returns:
+        Path to the saved dataset directory
+    """
+    import h5py
+    import gymnasium as gym
+    import mani_skill.envs  # noqa: F401
+
+    # Find the demo H5 file
+    demo_path = demo_dir / task
+    h5_files = list(demo_path.rglob("*.h5"))
+    if not h5_files:
+        raise FileNotFoundError(f"No demo H5 files found in {demo_path}")
+
+    # Prefer RL demos with pd_joint_delta_pos action space (8-dim, matches ManiSkill default)
+    rl_files = [f for f in h5_files if "rl" in str(f) and "pd_joint_delta_pos" in str(f)]
+    if not rl_files:
+        rl_files = [f for f in h5_files if "rl" in str(f)]
+    h5_file = rl_files[0] if rl_files else h5_files[0]
+    print(f"Loading demos from: {h5_file}")
+
+    # Open H5 file and get trajectory keys
+    h5 = h5py.File(h5_file, "r")
+    traj_keys = sorted(
+        [k for k in h5.keys() if k.startswith("traj_")],
+        key=lambda x: int(x.split("_")[1]),
+    )
+    traj_keys = traj_keys[:max_episodes]
+    print(f"Found {len(traj_keys)} trajectories")
+
+    # Create environment
+    env = gym.make(task, num_envs=1, obs_mode="state", render_mode=None)
+
+    # Create output directory
+    out_dir = demo_path / "replayed"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    episode_count = 0
+    total_transitions = 0
+
+    for traj_key in traj_keys:
+        traj = h5[traj_key]
+        actions = np.array(traj["actions"])  # (T, act_dim)
+        success = np.array(traj["success"])
+
+        # Skip failed demonstrations (check if any step succeeded)
+        if not success.any():
+            continue
+
+        # Truncate to max_steps
+        actions = actions[:max_steps]
+
+        # Reset environment with different seed per episode
+        obs, _ = env.reset(seed=seed + episode_count)
+        obs = _extract_state(obs)
+
+        # Replay actions and record transitions
+        states, actss, next_states, rewards, dones = [], [], [], [], []
+
+        for i in range(len(actions)):
+            action = actions[i : i + 1]  # Keep batch dim
+            next_obs, reward, terminated, truncated, info = env.step(action)
+            next_obs_np = _extract_state(next_obs)
+
+            states.append(obs)
+            actss.append(action.flatten())
+            next_states.append(next_obs_np)
+            rewards.append(float(reward))
+            dones.append(bool(terminated or truncated))
+
+            obs = next_obs_np
+            if terminated or truncated:
+                break
+
+        # Save as NPZ
+        n = len(states)
+        if n > 0:
+            np.savez(
+                out_dir / f"episode_{episode_count:05d}.npz",
+                states=np.array(states),
+                actions=np.array(actss),
+                next_states=np.array(next_states),
+                rewards=np.array(rewards),
+                dones=np.array(dones),
+            )
+            total_transitions += n
+            episode_count += 1
+
+        if episode_count >= max_episodes:
+            break
+
+    h5.close()
+    env.close()
+
+    print(f"Loaded {episode_count} episodes, {total_transitions} transitions -> {out_dir}")
+    return out_dir
+
+
 def main(
     task: str = typer.Option("PegInsertionSide-v1", help="ManiSkill3 task"),
     num_episodes: int = typer.Option(100, help="Episodes to collect"),

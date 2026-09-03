@@ -47,6 +47,7 @@ class LoopConfig:
     max_steps: int = 200
     num_envs: int = 1
     seed: int = 42
+    demo_dir: Path | None = None  # Path to downloaded ManiSkill demos for bootstrapping
 
     # Model
     hidden_dim: int = 512
@@ -76,8 +77,28 @@ class SelfDrivingLoop:
         return d
 
     def _collect(self, round_num: int, checkpoint_path: Path | None) -> Path:
-        """Collect new episodes. Round 0 uses random policy; later rounds use trained WAM."""
+        """Collect new episodes. Round 0 uses demos/random; later rounds use trained WAM."""
         data_dir = self.config.checkpoint_dir / f"round_{round_num:02d}" / "data"
+
+        # Round 0: bootstrap with demonstration data if available
+        if round_num == 0 and self.config.demo_dir and self.config.demo_dir.exists():
+            print(f"  Bootstrapping with demonstration data from {self.config.demo_dir}")
+            try:
+                from experiments.diffusion_wm.collector import load_demonstration_data
+                demo_data_dir = load_demonstration_data(
+                    task=self.config.task,
+                    demo_dir=self.config.demo_dir,
+                    max_episodes=self.config.episodes_per_round,
+                    max_steps=self.config.max_steps,
+                    seed=self.config.seed,
+                )
+                # Convert demo format to shard format for TransitionDataset
+                self._convert_demos_to_shards(demo_data_dir, data_dir)
+                return data_dir
+            except Exception as e:
+                print(f"  Demo loading failed ({e}), falling back to random collection")
+
+        # Random or WM-guided collection
         collector = ManiSkillCollector(
             self.config.task,
             num_envs=self.config.num_envs,
@@ -88,7 +109,17 @@ class SelfDrivingLoop:
         policy_fn = None
         if checkpoint_path is not None and checkpoint_path.exists():
             model = self._load_model(checkpoint_path)
-            policy_fn = lambda obs, m=model: self._wam_policy(m, obs)
+            # Use WM-guided exploration: CEM planning through the world model
+            try:
+                from experiments.diffusion_wm.wm_planner import WMPlanner, CEMConfig
+                planner = WMPlanner(model, CEMConfig(horizon=8, num_samples=100, num_top_k=10, num_iterations=3))
+                policy_fn = lambda obs, p=planner: p.plan(obs)
+                print(f"  Using WM-guided exploration (CEM: horizon=8, samples=100)")
+            except Exception as e:
+                print(f"  WM planner failed ({e}), falling back to WAM policy")
+                policy_fn = lambda obs, m=model: self._wam_policy(m, obs)
+        else:
+            print(f"  Using random exploration (round {round_num})")
 
         collector.collect_dataset(
             self.config.episodes_per_round,
@@ -97,6 +128,87 @@ class SelfDrivingLoop:
         )
         collector.close()
         return data_dir
+
+    def _convert_demos_to_shards(self, demo_dir: Path, out_dir: Path) -> None:
+        """Convert replayed demo episodes to shard format for TransitionDataset."""
+        import json as _json
+        out_dir.mkdir(parents=True, exist_ok=True)
+        meta_dir = out_dir / "meta"
+        meta_dir.mkdir(exist_ok=True)
+
+        # Load all demo episodes
+        episodes = list(sorted(demo_dir.glob("episode_*.npz")))
+        if not episodes:
+            raise ValueError(f"No episodes found in {demo_dir}")
+
+        # Split into shards
+        shard_size = 50_000
+        shard_idx = 0
+        shard_obs, shard_act, shard_next, shard_rew, shard_done = [], [], [], [], []
+        total_transitions = 0
+
+        for ep_path in episodes:
+            ep = np.load(ep_path)
+            n = len(ep["states"])
+            shard_obs.append(ep["states"])
+            shard_act.append(ep["actions"])
+            shard_next.append(ep["next_states"])
+            shard_rew.append(ep["rewards"])
+            shard_done.append(ep["dones"])
+            total_transitions += n
+
+            if total_transitions >= shard_size:
+                self._save_shard(
+                    out_dir / f"shard_{shard_idx:05d}.npz",
+                    np.concatenate(shard_obs),
+                    np.concatenate(shard_act),
+                    np.concatenate(shard_next),
+                    np.concatenate(shard_rew),
+                    np.concatenate(shard_done),
+                )
+                shard_idx += 1
+                shard_obs, shard_act, shard_next, shard_rew, shard_done = [], [], [], [], []
+                total_transitions = 0
+
+        # Save remaining data
+        if shard_obs:
+            self._save_shard(
+                out_dir / f"shard_{shard_idx:05d}.npz",
+                np.concatenate(shard_obs),
+                np.concatenate(shard_act),
+                np.concatenate(shard_next),
+                np.concatenate(shard_rew),
+                np.concatenate(shard_done),
+            )
+            shard_idx += 1
+
+        # Save metadata (include obs_dim/act_dim for train_wam compatibility)
+        first_ep = np.load(episodes[0])
+        obs_dim = first_ep["states"].shape[1]
+        act_dim = first_ep["actions"].shape[1]
+        meta = {
+            "task": self.config.task,
+            "num_episodes": len(episodes),
+            "num_transitions": sum(len(np.load(ep)["states"]) for ep in episodes),
+            "num_shards": shard_idx,
+            "obs_dim": int(obs_dim),
+            "act_dim": int(act_dim),
+            "source": "maniskill_demonstrations",
+        }
+        (meta_dir / "collection.json").write_text(_json.dumps(meta, indent=2))
+        print(f"  Converted {len(episodes)} demo episodes -> {shard_idx} shards in {out_dir}")
+
+    @staticmethod
+    def _save_shard(path: Path, obs: np.ndarray, act: np.ndarray, next_obs: np.ndarray, rew: np.ndarray, done: np.ndarray) -> None:
+        """Save a single shard in the format expected by TransitionDataset."""
+        np.savez_compressed(
+            path,
+            obs=obs,
+            action=act,
+            next_obs=next_obs,
+            rew=rew,
+            done=done,
+        )
 
     def _train(self, round_num: int, data_dir: Path) -> Path:
         """Train WAM on collected data."""
@@ -364,7 +476,13 @@ class SelfDrivingLoop:
         # 1. COLLECT
         print("\n[1/5] Collecting data...")
         t0 = time.monotonic()
-        checkpoint = dataset.parent / "best.pt" if dataset else None
+        # Use previous round's trained model for WM-guided exploration
+        checkpoint = None
+        if round_num > 0:
+            prev_run_id = f"wam_round_{round_num-1:02d}_{self.config.task}"
+            checkpoint = self.config.checkpoint_dir / prev_run_id / "best.pt"
+            if not checkpoint.exists():
+                checkpoint = self.config.checkpoint_dir / prev_run_id / "final.pt"
         new_data = self._collect(round_num, checkpoint)
         print(f"  Collected in {time.monotonic()-t0:.0f}s")
 
@@ -453,6 +571,7 @@ def main(
     checkpoint_dir: Path = typer.Option(Path("checkpoints/diffusion_wm")),
     port: int = typer.Option(8000, help="Policy server port"),
     seed: int = typer.Option(42),
+    demo_dir: Path = typer.Option(None, help="Path to downloaded ManiSkill demos for bootstrapping"),
 ) -> None:
     config = LoopConfig(
         task=task,
@@ -466,6 +585,7 @@ def main(
         checkpoint_dir=checkpoint_dir,
         port=port,
         seed=seed,
+        demo_dir=demo_dir,
     )
     loop = SelfDrivingLoop(config)
     loop.run()
