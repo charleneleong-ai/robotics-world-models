@@ -38,10 +38,9 @@ def run_sweep():
         cmd = [
             "python", "-u", "experiments/diffusion_wm/loop.py",
             "--task", task,
-            "--rounds", str(ROUNDS),
-            "--episodes", str(EPISODES_PER_ROUND),
+            "--num-rounds", str(ROUNDS),
+            "--episodes-per-round", str(EPISODES_PER_ROUND),
             "--demo-dir", f"/tmp/mp_demos/{task}/",
-            "--output", f"eval_results/{task.replace('-', '_').lower()}",
         ]
         
         log_file = log_dir / f"sweep_{int(time.time())}.log"
