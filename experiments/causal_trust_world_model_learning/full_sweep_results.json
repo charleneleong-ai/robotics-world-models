@@ -1,0 +1,260 @@
+[
+  {
+    "backbone": "mlp",
+    "trust": "ema",
+    "task_rewards": [
+      2.233820915222168,
+      6.266885280609131,
+      2.5066213607788086
+    ],
+    "avg_reward": 3.6691091855367026,
+    "time_sec": 83.06937599182129
+  },
+  {
+    "backbone": "mlp",
+    "trust": "multi_step",
+    "task_rewards": [
+      2.565825939178467,
+      6.055024147033691,
+      1.7913339138031006
+    ],
+    "avg_reward": 3.4707280000050864,
+    "time_sec": 84.38454937934875
+  },
+  {
+    "backbone": "mlp",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "mlp",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "mlp",
+    "trust": "none",
+    "task_rewards": [
+      2.172553539276123,
+      6.224389553070068,
+      2.293571949005127
+    ],
+    "avg_reward": 3.563505013783773,
+    "time_sec": 83.76278924942017
+  },
+  {
+    "backbone": "rssm",
+    "trust": "ema",
+    "task_rewards": [
+      1.8967864513397217,
+      6.172560214996338,
+      1.892406702041626
+    ],
+    "avg_reward": 3.320584456125895,
+    "time_sec": 94.22535061836243
+  },
+  {
+    "backbone": "rssm",
+    "trust": "multi_step",
+    "task_rewards": [
+      3.0700910091400146,
+      6.228710174560547,
+      1.546100378036499
+    ],
+    "avg_reward": 3.614967187245687,
+    "time_sec": 93.04968571662903
+  },
+  {
+    "backbone": "rssm",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "rssm",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "rssm",
+    "trust": "none",
+    "task_rewards": [
+      1.6874520778656006,
+      6.144594669342041,
+      1.5154902935028076
+    ],
+    "avg_reward": 3.1158456802368164,
+    "time_sec": 91.82494449615479
+  },
+  {
+    "backbone": "jepa",
+    "trust": "ema",
+    "task_rewards": [
+      1.847010850906372,
+      6.317014694213867,
+      1.9053093194961548
+    ],
+    "avg_reward": 3.3564449548721313,
+    "time_sec": 85.6606183052063
+  },
+  {
+    "backbone": "jepa",
+    "trust": "multi_step",
+    "task_rewards": [
+      1.7738507986068726,
+      6.120983123779297,
+      1.822896957397461
+    ],
+    "avg_reward": 3.2392436265945435,
+    "time_sec": 85.0952045917511
+  },
+  {
+    "backbone": "jepa",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "jepa",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "jepa",
+    "trust": "none",
+    "task_rewards": [
+      2.0490479469299316,
+      6.255690574645996,
+      1.7137082815170288
+    ],
+    "avg_reward": 3.3394822676976523,
+    "time_sec": 85.4750587940216
+  },
+  {
+    "backbone": "dreamerv3",
+    "trust": "ema",
+    "task_rewards": [
+      2.8441574573516846,
+      6.239351272583008,
+      2.1875476837158203
+    ],
+    "avg_reward": 3.757018804550171,
+    "time_sec": 92.9036214351654
+  },
+  {
+    "backbone": "dreamerv3",
+    "trust": "multi_step",
+    "task_rewards": [
+      2.7531051635742188,
+      6.144699573516846,
+      1.2969812154769897
+    ],
+    "avg_reward": 3.3982619841893515,
+    "time_sec": 92.8146345615387
+  },
+  {
+    "backbone": "dreamerv3",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "dreamerv3",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "dreamerv3",
+    "trust": "none",
+    "task_rewards": [
+      2.015650987625122,
+      6.24038028717041,
+      1.1910400390625
+    ],
+    "avg_reward": 3.1490237712860107,
+    "time_sec": 92.38376307487488
+  },
+  {
+    "backbone": "diffusion",
+    "trust": "ema",
+    "task_rewards": [
+      2.2790939807891846,
+      6.231101989746094,
+      2.1446421146392822
+    ],
+    "avg_reward": 3.551612695058187,
+    "time_sec": 86.75738477706909
+  },
+  {
+    "backbone": "diffusion",
+    "trust": "multi_step",
+    "task_rewards": [
+      2.4360320568084717,
+      6.281401634216309,
+      2.1702232360839844
+    ],
+    "avg_reward": 3.6292189757029214,
+    "time_sec": 89.0725474357605
+  },
+  {
+    "backbone": "diffusion",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "diffusion",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "diffusion",
+    "trust": "none",
+    "task_rewards": [
+      2.899667739868164,
+      6.277619361877441,
+      1.3357077836990356
+    ],
+    "avg_reward": 3.504331628481547,
+    "time_sec": 84.75580644607544
+  },
+  {
+    "backbone": "transformer",
+    "trust": "ema",
+    "task_rewards": [
+      3.436917781829834,
+      6.032309532165527,
+      1.9909775257110596
+    ],
+    "avg_reward": 3.82006827990214,
+    "time_sec": 80.9735050201416
+  },
+  {
+    "backbone": "transformer",
+    "trust": "multi_step",
+    "task_rewards": [
+      3.3628182411193848,
+      6.149033546447754,
+      2.1594576835632324
+    ],
+    "avg_reward": 3.8904364903767905,
+    "time_sec": 84.01878190040588
+  },
+  {
+    "backbone": "transformer",
+    "trust": "ffdc",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 543, in run_one\n    trust.train_step(obs_f[i:i+c], next_f[i:i+c], act_f[i:i+c], labels[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 420, in train_step\n    p = self.enc(obs_a)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/container.py\", line 253, in forward\n    input = module(input)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "transformer",
+    "trust": "ensemble",
+    "error": "Traceback (most recent call last):\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 628, in main\n    r = run_one(bb, tr, tasks, n_ep=args.n_episodes, max_steps=args.max_steps)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 545, in run_one\n    trust.train_step(obs_f[i:i+c], obs_f[i:i+c])\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in train_step\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/full_backbone_sweep.py\", line 442, in <listcomp>\n    preds = torch.stack([h(features) for h in self.heads], dim=0)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1778, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/module.py\", line 1789, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"/home/ubuntu/.local/lib/python3.10/site-packages/torch/nn/modules/linear.py\", line 134, in forward\n    return F.linear(input, self.weight, self.bias)\nRuntimeError: Expected all tensors to be on the same device, but got mat1 is on cuda:0, different from other tensors on cpu (when checking argument in method wrapper_CUDA_addmm)\n"
+  },
+  {
+    "backbone": "transformer",
+    "trust": "none",
+    "task_rewards": [
+      2.4227325916290283,
+      6.099393844604492,
+      1.9761263132095337
+    ],
+    "avg_reward": 3.4994175831476846,
+    "time_sec": 82.15592074394226
+  }
+]

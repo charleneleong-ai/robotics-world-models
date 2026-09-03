@@ -1,0 +1,22 @@
+{
+  "maniskill": {
+    "random": {
+      "reward": 2.302270964781443,
+      "success": 0.0,
+      "avg_trust": 0.5,
+      "rejection_rate": 0.0
+    },
+    "trust_0.3": {
+      "reward": 2.7291107634703318,
+      "success": 0.0,
+      "avg_trust": 0.41226722327868154,
+      "rejection_rate": 0.0
+    },
+    "trust_0.5": {
+      "reward": 2.642158235112826,
+      "success": 0.0,
+      "avg_trust": 0.41477452828486755,
+      "rejection_rate": 0.499
+    }
+  }
+}

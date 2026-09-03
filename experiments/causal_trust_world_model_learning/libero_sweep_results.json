@@ -1,0 +1,173 @@
+[
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "mlp",
+    "trust": "ema",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2450.7921969890594
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "mlp",
+    "trust": "multi_step",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2511.1522483825684
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "mlp",
+    "trust": "none",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2630.746527194977
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "rssm",
+    "trust": "ema",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2665.256656885147
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "rssm",
+    "trust": "multi_step",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2554.0922236442566
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "rssm",
+    "trust": "none",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2564.5144867897034
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "jepa",
+    "trust": "ema",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2524.4728257656097
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "jepa",
+    "trust": "multi_step",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2645.7605216503143
+  },
+  {
+    "benchmark": "libero_libero_spatial",
+    "backbone": "jepa",
+    "trust": "none",
+    "task_rewards": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "avg_reward": 0.0,
+    "time_sec": 2667.5988948345184
+  }
+]

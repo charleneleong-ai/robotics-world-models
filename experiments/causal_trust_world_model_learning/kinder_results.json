@@ -1,0 +1,230 @@
+[
+  {
+    "benchmark": "kinder",
+    "backbone": "mlp",
+    "trust": "ema",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 584.3177428245544
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "mlp",
+    "trust": "multi_step",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 546.5526149272919
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "mlp",
+    "trust": "none",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 592.4658102989197
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "rssm",
+    "trust": "ema",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 579.3109304904938
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "rssm",
+    "trust": "multi_step",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 589.1640503406525
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "rssm",
+    "trust": "none",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 575.8990535736084
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "dreamerv3",
+    "trust": "ema",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 593.7794005870819
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "dreamerv3",
+    "trust": "multi_step",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 624.9668817520142
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "dreamerv3",
+    "trust": "none",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 626.6033501625061
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "transformer",
+    "trust": "ema",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 582.7965648174286
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "transformer",
+    "trust": "multi_step",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 605.9845988750458
+  },
+  {
+    "benchmark": "kinder",
+    "backbone": "transformer",
+    "trust": "none",
+    "task_rewards": [
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0,
+      -50.0
+    ],
+    "avg_reward": -50.0,
+    "time_sec": 536.5320498943329
+  }
+]

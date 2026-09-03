@@ -1,0 +1,186 @@
+{
+  "results": [
+    {
+      "task": 0,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": null,
+      "on_task_error_after_train": 0.018303286284208298,
+      "prev_avg_reward": 0.0,
+      "prev_avg_error": 0.0,
+      "time": 17.330594539642334
+    },
+    {
+      "task": 1,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.020944351330399513,
+      "on_task_error_after_train": 0.010665477253496647,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 15.947499752044678
+    },
+    {
+      "task": 2,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.006409801542758942,
+      "on_task_error_after_train": 0.005685106385499239,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 22.04540491104126
+    },
+    {
+      "task": 3,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.007747539784759283,
+      "on_task_error_after_train": 0.004203991498798132,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 16.219098329544067
+    },
+    {
+      "task": 4,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.003957489505410194,
+      "on_task_error_after_train": 0.001956458669155836,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 14.262501001358032
+    },
+    {
+      "task": 5,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.002290289383381605,
+      "on_task_error_after_train": 0.000656704418361187,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 18.356340408325195
+    },
+    {
+      "task": 6,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.0014297215966507792,
+      "on_task_error_after_train": 0.001136853825300932,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 10.461220979690552
+    },
+    {
+      "task": 7,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.001179648214019835,
+      "on_task_error_after_train": 0.0007420398760586977,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 14.2330322265625
+    },
+    {
+      "task": 8,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.002027723239734769,
+      "on_task_error_after_train": 0.00023048458388075233,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 16.087022304534912
+    },
+    {
+      "task": 9,
+      "reward": -1.0,
+      "trust": 0.0,
+      "eval_error": 1.0,
+      "pre_generalization_error": 0.0006937048165127635,
+      "on_task_error_after_train": 0.002496716333553195,
+      "prev_avg_reward": -1.0,
+      "prev_avg_error": 1.0,
+      "time": 13.78545880317688
+    }
+  ],
+  "wm_errors": [
+    {
+      "task": 0,
+      "pre_error": null,
+      "post_error": 0.018303286284208298,
+      "on_task_error": 1.0,
+      "prev_error": 0.0
+    },
+    {
+      "task": 1,
+      "pre_error": 0.020944351330399513,
+      "post_error": 0.010665477253496647,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 2,
+      "pre_error": 0.006409801542758942,
+      "post_error": 0.005685106385499239,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 3,
+      "pre_error": 0.007747539784759283,
+      "post_error": 0.004203991498798132,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 4,
+      "pre_error": 0.003957489505410194,
+      "post_error": 0.001956458669155836,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 5,
+      "pre_error": 0.002290289383381605,
+      "post_error": 0.000656704418361187,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 6,
+      "pre_error": 0.0014297215966507792,
+      "post_error": 0.001136853825300932,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 7,
+      "pre_error": 0.001179648214019835,
+      "post_error": 0.0007420398760586977,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 8,
+      "pre_error": 0.002027723239734769,
+      "post_error": 0.00023048458388075233,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    },
+    {
+      "task": 9,
+      "pre_error": 0.0006937048165127635,
+      "post_error": 0.002496716333553195,
+      "on_task_error": 1.0,
+      "prev_error": 1.0
+    }
+  ]
+}
