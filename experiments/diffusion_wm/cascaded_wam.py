@@ -293,6 +293,20 @@ class CascadedWAM(nn.Module):
         """Predict next_state using world model."""
         return self.world_model(obs, action)
 
+    def training_loss(
+        self,
+        obs: torch.Tensor,
+        next_state: torch.Tensor,
+        action: torch.Tensor,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Compute joint training loss on world model + action decoder."""
+        total_loss, wm_loss, ad_loss = self.compute_loss(obs, next_state, action)
+        return total_loss, {
+            "wm_loss": wm_loss.item(),
+            "ad_loss": ad_loss.item(),
+            "total_loss": total_loss.item(),
+        }
+
     def save(self, path: str) -> None:
         """Save model checkpoint."""
         torch.save({

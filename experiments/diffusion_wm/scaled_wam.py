@@ -307,6 +307,20 @@ class ScaledDiffusionWAM(nn.Module):
 
         return x
 
+    def training_loss(
+        self,
+        obs: torch.Tensor,
+        next_state: torch.Tensor,
+        action: torch.Tensor,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Compute joint training loss on state + action denoising."""
+        total_loss, state_loss, action_loss = self.compute_loss(obs, next_state, action)
+        return total_loss, {
+            "state_loss": state_loss.item(),
+            "action_loss": action_loss.item(),
+            "total_loss": total_loss.item(),
+        }
+
     def save(self, path: str) -> None:
         """Save model checkpoint."""
         torch.save({
