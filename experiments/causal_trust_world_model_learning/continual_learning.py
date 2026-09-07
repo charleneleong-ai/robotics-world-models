@@ -152,6 +152,7 @@ class WorldModelTrustCL(ContinualLearner):
         self.kd_weight = kd_weight
         self.previous_models: dict[int, nn.Module] = {}
         self.task_trust_scores: dict[int, list[float]] = {}
+        self._task_samples: list[dict] = []
 
     def train_world_model(
         self,
@@ -261,6 +262,8 @@ class WorldModelTrustCL(ContinualLearner):
         total_loss.backward()
         self.optimizer.step()
 
+        self._task_samples.append({"obs": obs.detach().cpu(), "targets": targets.detach().cpu()})
+
         return {
             "loss": total_loss.item(),
             "accuracy": (logits.argmax(-1) == targets).float().mean().item(),
@@ -276,7 +279,16 @@ class WorldModelTrustCL(ContinualLearner):
             task_id: completed task identifier
             trust_score: average trust score for the task
         """
-        # Compute Fisher information
+        # Compute Fisher information from this task's observed batches, so
+        # compute_penalty() in observe() actually has something to protect
+        # on later tasks (previously this was never called, so the
+        # trust-weighted EWC penalty was silently always zero).
+        def loss_fn(b: dict) -> torch.Tensor:
+            return F.cross_entropy(self.model(b["obs"].to(self.device)), b["targets"].to(self.device))
+
+        self.consolidation.compute_fisher(task_id, self._task_samples, loss_fn,
+                                           num_samples=len(self._task_samples))
+        self._task_samples = []
         self.consolidation.set_trust(task_id, trust_score)
 
         # Save model snapshot
@@ -359,8 +371,8 @@ class EWCCL(ContinualLearner):
         self.ewc_lambda = ewc_lambda
         self.fisher_info: dict[int, dict[str, torch.Tensor]] = {}
         self.optimal_params: dict[int, dict[str, torch.Tensor]] = {}
+        self._task_samples: list[dict] = []
 
-    @torch.no_grad()
     def compute_fisher(
         self,
         task_id: int,
@@ -421,13 +433,25 @@ class EWCCL(ContinualLearner):
         loss.backward()
         self.optimizer.step()
 
+        self._task_samples.append({"obs": obs.detach().cpu(), "targets": targets.detach().cpu()})
+
         return {
             "loss": loss.item(),
             "accuracy": (logits.argmax(-1) == targets).float().mean().item(),
         }
 
     def consolidate(self, task_id: int = None):
-        """After task completion, we've already computed Fisher during training."""
+        """Estimate the diagonal Fisher information from this task's observed
+        batches and anchor the current parameters, so the EWC penalty in
+        `observe()` actually has something to penalise against on later tasks.
+        """
+        tid = task_id if task_id is not None else self.task_count
+
+        def loss_fn(b: dict) -> torch.Tensor:
+            return F.cross_entropy(self.model(b["obs"].to(self.device)), b["targets"].to(self.device))
+
+        self.compute_fisher(tid, self._task_samples, loss_fn, num_samples=len(self._task_samples))
+        self._task_samples = []
         super().consolidate()
 
 
@@ -668,19 +692,32 @@ class PackNetCL(ContinualLearner):
         self.prune_ratio = prune_ratio
         self.frozen_masks: dict[int, dict[str, torch.Tensor]] = {}
         self.task_param_usage: dict[int, set[str]] = {}
+        self._grad_accum: dict[str, torch.Tensor] = {
+            n: torch.zeros_like(p) for n, p in model.named_parameters()
+        }
+        self._grad_accum_steps = 0
 
     def _compute_importance(self, task_id: int) -> dict[str, torch.Tensor]:
-        """Compute parameter importance for the current task."""
-        importance = {}
-        for name, param in self.model.named_parameters():
-            if param.grad is not None:
-                importance[name] = param.grad.data.abs()
-            else:
-                importance[name] = torch.zeros_like(param.data)
+        """Mean absolute gradient accumulated over every batch of this task
+        (not just the last one, which was too noisy a single-sample estimate
+        of which parameters actually mattered for the whole task).
+        """
+        importance = {
+            n: acc / max(self._grad_accum_steps, 1) for n, acc in self._grad_accum.items()
+        }
+        self._grad_accum = {n: torch.zeros_like(v) for n, v in self._grad_accum.items()}
+        self._grad_accum_steps = 0
         return importance
 
     def _prune_and_freeze(self, task_id: int):
-        """Prune least important parameters and freeze them for this task."""
+        """Identify the top `1 - prune_ratio` fraction of parameters (by mean
+        gradient magnitude this task) as important to this task, and freeze
+        them going forward. The stored mask is a "gradient allowed" mask
+        (1 = free capacity, still trainable by future tasks; 0 = important to
+        this task, frozen) -- this is the mask `observe()` multiplies future
+        gradients by, so it must have the opposite sense of an "importance"
+        or "keep this weight" mask.
+        """
         importance = self._compute_importance(task_id)
         frozen = {}
 
@@ -690,8 +727,9 @@ class PackNetCL(ContinualLearner):
                 imp = importance[name].flatten()
                 threshold = torch.quantile(imp, self.prune_ratio)
 
-                # Create mask: 1 = keep, 0 = prune
-                mask = (importance[name] > threshold).float()
+                # 1 = free capacity (below-threshold importance, still trainable);
+                # 0 = important to this task, frozen for all future tasks.
+                mask = (importance[name] <= threshold).float()
 
                 # Freeze parameters for this task
                 frozen[name] = mask
@@ -708,14 +746,22 @@ class PackNetCL(ContinualLearner):
 
         logits = self.model(obs)
         loss = F.cross_entropy(logits, targets)
+        loss.backward()
 
-        # Mask gradients for previously frozen parameters
+        # Mask gradients for previously frozen parameters (must run after
+        # backward() populates param.grad, and before the optimizer step
+        # consumes it -- doing this before backward() is a no-op since
+        # param.grad is always None at that point).
         for prev_task_id, masks in self.frozen_masks.items():
             for name, param in self.model.named_parameters():
                 if name in masks and param.grad is not None:
                     param.grad.data *= masks[name]
 
-        loss.backward()
+        for name, param in self.model.named_parameters():
+            if param.grad is not None:
+                self._grad_accum[name] += param.grad.data.abs()
+        self._grad_accum_steps += 1
+
         self.optimizer.step()
 
         return {
