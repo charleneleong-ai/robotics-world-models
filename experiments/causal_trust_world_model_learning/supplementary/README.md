@@ -6,6 +6,8 @@ This directory documents, for every table/figure in `main.tex`, exactly which sc
 
 **Update (same day, later pass):** three scripts previously listed as "script lost" were recovered from `git log` -- they were deleted in commit `8e65a1b` ("refactor: remove old scripts and results") but never actually fabricated. All three were verified real (contain `env.step()`/`.backward()`/`optimizer.step()`, zero hits for the hardcoded-formula pattern) and restored to the working tree in commit `30077b5`. A full-history `git log --all -S<term>` search (every commit, every branch, filename and content) for `skill_level`, `meta_learner`, `Architecture-Type`/`arch_type`, and `protection` found zero hits anywhere -- those four remain genuinely untraceable, not just "not yet found."
 
+**Local copy note:** `scripts/` and `results/` in this directory are a citation/inspection bundle -- the scripts that back every REAL table below, plus the rebuilt failure-recovery result. They are not a standalone runnable package: full reproduction needs the complete `robotics_world_models` repo (LIBERO/ManiSkill demo data, GPU, the `continualwam` package) on the original host, referenced in each script's hardcoded `sys.path.insert`/`RESULTS_DIR` paths. This bundle exists so a reviewer can read the real training code without SSH access to that host.
+
 ## Status legend
 
 - **REAL**: verified real `env.step()`/`model()` computation, traced end to end.
@@ -47,6 +49,8 @@ These are renamed `*_FABRICATED_*.py.bak` in the parent directory and in `supple
 
 ## Reproducing the real results
 
+All commands below are run from the original `experiments/causal_trust_world_model_learning/` directory on the training host (`pi-a100-80gb`), not from this `scripts/` copy -- see the local-copy note above.
+
 ```bash
 python3 maniskill_benchmark.py          # tab:cl_baselines, tab:safety
 python3 ablation_buffer.py              # tab:buffer_ablation
@@ -64,3 +68,22 @@ python3 ablation_trust.py                 # tab:ablation_trust (rerun to confirm
 ```
 
 `sweep_log.txt` remains the surviving direct evidence the ManiSkill sweep was run against real environments (per-task rewards, e.g. `Task 0 (PushCube-v1): 2.173`), independent of the script recovery.
+
+## Contents of this local bundle
+
+```
+supplementary/
+├── README.md                              # this file
+├── scripts/
+│   ├── full_backbone_sweep.py             # tab:libero_sweep (recovered from git)
+│   ├── multi_step_backbone_sweep.py       # tab:backbone_invariance (recovered from git)
+│   ├── ablation_trust.py                  # tab:ablation_trust (recovered from git, output not yet confirmed)
+│   ├── maniskill_benchmark.py             # tab:cl_baselines, tab:safety
+│   ├── ablation_buffer.py                 # tab:buffer_ablation
+│   ├── ablation_threshold.py              # threshold sensitivity
+│   ├── selective_replay_5seeds.py         # tab:selective_replay (negative result)
+│   ├── experiment_4_failure_recovery.py   # tab:failure_recovery (rebuilt real, OOP)
+│   └── trust_scoring.py                   # shared TrustScorer class used across the above
+└── results/
+    └── failure_recovery_real_results.json # rebuilt failure-recovery data (5 seeds, 3 methods, 3 failure rates)
+```
