@@ -132,7 +132,6 @@ class TrustWeightedConsolidation:
         self.optimal_params: dict[int, dict[str, torch.Tensor]] = {}
         self.task_trust: dict[int, float] = {}
 
-    @torch.no_grad()
     def compute_fisher(
         self,
         task_id: int,
