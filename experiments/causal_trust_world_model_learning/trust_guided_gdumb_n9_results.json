@@ -1,0 +1,96 @@
+{
+  "gdumb_plain": {
+    "acc_mean": 0.823872200316853,
+    "acc_std": 0.013539862652139897,
+    "bwt_mean": -0.04011852432180334,
+    "bwt_std": 0.016204304205194284
+  },
+  "gdumb_trust_curated": {
+    "acc_mean": 0.8072888751824697,
+    "acc_std": 0.020533845424877278,
+    "bwt_mean": -0.03377777558785898,
+    "bwt_std": 0.01213260301861741
+  },
+  "paired_t_acc": 2.9390082181236425,
+  "p_acc": 0.018738052463319346,
+  "paired_t_bwt": -1.0117450342420886,
+  "p_bwt": 0.3412783589598628,
+  "raw": {
+    "gdumb_plain": [
+      {
+        "avg_accuracy": 0.7972999811172485,
+        "backward_transfer": -0.051333347956339516
+      },
+      {
+        "avg_accuracy": 0.8110499680042267,
+        "backward_transfer": -0.05080000559488932
+      },
+      {
+        "avg_accuracy": 0.8422999978065491,
+        "backward_transfer": -0.02333333094914754
+      },
+      {
+        "avg_accuracy": 0.8429499715566635,
+        "backward_transfer": -0.018133342266082764
+      },
+      {
+        "avg_accuracy": 0.8279999792575836,
+        "backward_transfer": -0.024933338165283203
+      },
+      {
+        "avg_accuracy": 0.8247999846935272,
+        "backward_transfer": -0.06386665503184001
+      },
+      {
+        "avg_accuracy": 0.8281499594449997,
+        "backward_transfer": -0.03146670262018839
+      },
+      {
+        "avg_accuracy": 0.8225999772548676,
+        "backward_transfer": -0.061733345190684
+      },
+      {
+        "avg_accuracy": 0.817699983716011,
+        "backward_transfer": -0.03546665112177531
+      }
+    ],
+    "gdumb_trust_curated": [
+      {
+        "avg_accuracy": 0.7838999778032303,
+        "backward_transfer": -0.05120001236597697
+      },
+      {
+        "avg_accuracy": 0.8141999840736389,
+        "backward_transfer": -0.020666658878326416
+      },
+      {
+        "avg_accuracy": 0.8360999971628189,
+        "backward_transfer": -0.01919996738433838
+      },
+      {
+        "avg_accuracy": 0.8438999801874161,
+        "backward_transfer": -0.03200000524520874
+      },
+      {
+        "avg_accuracy": 0.7836999893188477,
+        "backward_transfer": -0.019733329614003498
+      },
+      {
+        "avg_accuracy": 0.7981999963521957,
+        "backward_transfer": -0.04133331775665283
+      },
+      {
+        "avg_accuracy": 0.7967000007629395,
+        "backward_transfer": -0.043599983056386314
+      },
+      {
+        "avg_accuracy": 0.7929999679327011,
+        "backward_transfer": -0.027066707611083984
+      },
+      {
+        "avg_accuracy": 0.815899983048439,
+        "backward_transfer": -0.04919999837875366
+      }
+    ]
+  }
+}
