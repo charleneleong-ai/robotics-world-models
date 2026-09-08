@@ -1,0 +1,64 @@
+{
+  "real_trust": {
+    "acc_mean": 0.8193099781870842,
+    "acc_std": 0.022940061102033622,
+    "bwt_mean": -0.056666674216588345,
+    "bwt_std": 0.008480664485731962
+  },
+  "constant_trust": {
+    "acc_mean": 0.8035399809479713,
+    "acc_std": 0.06811943802696806,
+    "bwt_mean": -0.06095999677975972,
+    "bwt_std": 0.03489244480324438
+  },
+  "paired_t_acc": 0.6238618842968038,
+  "p_acc": 0.5665324549799098,
+  "paired_t_bwt": 0.23805624831478173,
+  "p_bwt": 0.8235348673422072,
+  "raw": {
+    "real_trust": [
+      {
+        "avg_accuracy": 0.8399999886751175,
+        "backward_transfer": -0.060533344745635986
+      },
+      {
+        "avg_accuracy": 0.822099968791008,
+        "backward_transfer": -0.06319999694824219
+      },
+      {
+        "avg_accuracy": 0.7862999811768532,
+        "backward_transfer": -0.06560000777244568
+      },
+      {
+        "avg_accuracy": 0.8010499775409698,
+        "backward_transfer": -0.05119999249776205
+      },
+      {
+        "avg_accuracy": 0.8470999747514725,
+        "backward_transfer": -0.0428000291188558
+      }
+    ],
+    "constant_trust": [
+      {
+        "avg_accuracy": 0.8175499886274338,
+        "backward_transfer": -0.043599983056386314
+      },
+      {
+        "avg_accuracy": 0.8702499717473984,
+        "backward_transfer": -0.04773334662119547
+      },
+      {
+        "avg_accuracy": 0.7338499873876572,
+        "backward_transfer": -0.06066666046778361
+      },
+      {
+        "avg_accuracy": 0.7154499813914299,
+        "backward_transfer": -0.12706668178240457
+      },
+      {
+        "avg_accuracy": 0.8805999755859375,
+        "backward_transfer": -0.025733311971028645
+      }
+    ]
+  }
+}
