@@ -1,0 +1,26 @@
+{
+  "mlp": {
+    "n_alarms": 11,
+    "chance_f1": 0.0986,
+    "chance_f1_p95": 0.3,
+    "chance_recall": 0.10955555555555557,
+    "chance_precision": 0.08963636363636363,
+    "observed_f1": 0.5491598561621445
+  },
+  "rssm": {
+    "n_alarms": 9,
+    "chance_f1": 0.08866666666666669,
+    "chance_f1_p95": 0.2222222222222222,
+    "chance_recall": 0.08866666666666669,
+    "chance_precision": 0.08866666666666669,
+    "observed_f1": 0.5869883040935673
+  },
+  "jepa": {
+    "n_alarms": 10,
+    "chance_f1": 0.09447368421052633,
+    "chance_f1_p95": 0.2105263157894737,
+    "chance_recall": 0.09972222222222223,
+    "chance_precision": 0.08975,
+    "observed_f1": 0.4728851540616247
+  }
+}
