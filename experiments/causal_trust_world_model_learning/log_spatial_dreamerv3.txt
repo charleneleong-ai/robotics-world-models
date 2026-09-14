@@ -1,0 +1,438 @@
+============================================================
+LIBERO Expert Demo Pretraining + Trust Fine-tuning
+============================================================
+Suite: libero_spatial
+Tasks: 10
+Backbones: ['dreamerv3']
+Trusts: ['none', 'ema', 'multi_step']
+Device: cuda
+
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/ubuntu/.netrc.
+wandb: Currently logged in as: chaleong to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+wandb: Tracking run with wandb version 0.28.1
+wandb: Run data is saved locally in /home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/wandb/run-20260831_032849-b8h06l94
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run libero_libero_spatial_cuda
+wandb: ⭐️ View project at https://wandb.ai/chaleong/continualwam
+wandb: 🚀 View run at https://wandb.ai/chaleong/continualwam/runs/b8h06l94
+
+========================================
+Config: dreamerv3 + none
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0017
+  Epoch 20/50: loss=0.0013
+  Epoch 30/50: loss=0.0011
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0013
+  Episode 5/10: reward=-23.236, avg_trust=1.000
+  Episode 10/10: reward=-17.866, avg_trust=1.000
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0025
+  Epoch 20/50: loss=0.0016
+  Epoch 30/50: loss=0.0012
+  Epoch 40/50: loss=0.0011
+  Epoch 50/50: loss=0.0010
+  Episode 5/10: reward=-35.824, avg_trust=1.000
+  Episode 10/10: reward=-23.230, avg_trust=1.000
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0037
+  Epoch 20/50: loss=0.0025
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0018
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-19.656, avg_trust=1.000
+  Episode 10/10: reward=-18.751, avg_trust=1.000
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0038
+  Epoch 20/50: loss=0.0022
+  Epoch 30/50: loss=0.0016
+  Epoch 40/50: loss=0.0013
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-9.950, avg_trust=1.000
+  Episode 10/10: reward=-9.912, avg_trust=1.000
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0023
+  Epoch 20/50: loss=0.0022
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0016
+  Episode 5/10: reward=-29.888, avg_trust=1.000
+  Episode 10/10: reward=-35.734, avg_trust=1.000
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0024
+  Epoch 20/50: loss=0.0019
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-28.774, avg_trust=1.000
+  Episode 10/10: reward=-29.519, avg_trust=1.000
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0011
+  Epoch 20/50: loss=0.0009
+  Epoch 30/50: loss=0.0009
+  Epoch 40/50: loss=0.0008
+  Epoch 50/50: loss=0.0007
+  Episode 5/10: reward=-17.802, avg_trust=1.000
+  Episode 10/10: reward=-17.827, avg_trust=1.000
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0037
+  Epoch 20/50: loss=0.0028
+  Epoch 30/50: loss=0.0028
+  Epoch 40/50: loss=0.0028
+  Epoch 50/50: loss=0.0030
+  Episode 5/10: reward=-38.847, avg_trust=1.000
+  Episode 10/10: reward=-40.174, avg_trust=1.000
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0038
+  Epoch 20/50: loss=0.0016
+  Epoch 30/50: loss=0.0014
+  Epoch 40/50: loss=0.0013
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-36.100, avg_trust=1.000
+  Episode 10/10: reward=-55.472, avg_trust=1.000
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0029
+  Epoch 20/50: loss=0.0024
+  Epoch 30/50: loss=0.0026
+  Epoch 40/50: loss=0.0021
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-17.494, avg_trust=1.000
+  Episode 10/10: reward=-16.214, avg_trust=1.000
+
+>>> Average reward: -27.984
+
+========================================
+Config: dreamerv3 + ema
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0017
+  Epoch 20/50: loss=0.0013
+  Epoch 30/50: loss=0.0013
+  Epoch 40/50: loss=0.0012
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-19.086, avg_trust=0.628
+  Episode 10/10: reward=-21.789, avg_trust=0.643
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0023
+  Epoch 20/50: loss=0.0014
+  Epoch 30/50: loss=0.0012
+  Epoch 40/50: loss=0.0011
+  Epoch 50/50: loss=0.0011
+  Episode 5/10: reward=-11.864, avg_trust=0.395
+  Episode 10/10: reward=-27.348, avg_trust=0.383
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0036
+  Epoch 20/50: loss=0.0025
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0018
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-21.977, avg_trust=0.339
+  Episode 10/10: reward=-21.976, avg_trust=0.340
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0039
+  Epoch 20/50: loss=0.0026
+  Epoch 30/50: loss=0.0016
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-29.760, avg_trust=0.262
+  Episode 10/10: reward=-21.562, avg_trust=0.473
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0026
+  Epoch 20/50: loss=0.0020
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0018
+  Episode 5/10: reward=-14.769, avg_trust=0.497
+  Episode 10/10: reward=-22.502, avg_trust=0.547
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0024
+  Epoch 20/50: loss=0.0018
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-45.969, avg_trust=0.382
+  Episode 10/10: reward=-37.676, avg_trust=0.352
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0013
+  Epoch 20/50: loss=0.0010
+  Epoch 30/50: loss=0.0008
+  Epoch 40/50: loss=0.0008
+  Epoch 50/50: loss=0.0013
+  Episode 5/10: reward=-19.034, avg_trust=0.470
+  Episode 10/10: reward=-19.997, avg_trust=0.474
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0041
+  Epoch 20/50: loss=0.0031
+  Epoch 30/50: loss=0.0027
+  Epoch 40/50: loss=0.0029
+  Epoch 50/50: loss=0.0028
+  Episode 5/10: reward=-63.522, avg_trust=0.434
+  Episode 10/10: reward=-52.355, avg_trust=0.320
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0021
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0013
+  Epoch 40/50: loss=0.0012
+  Epoch 50/50: loss=0.0011
+  Episode 5/10: reward=-54.092, avg_trust=0.507
+  Episode 10/10: reward=-58.992, avg_trust=0.502
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0029
+  Epoch 20/50: loss=0.0028
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0020
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-13.967, avg_trust=0.147
+  Episode 10/10: reward=-21.444, avg_trust=0.297
+
+>>> Average reward: -29.404
+
+========================================
+Config: dreamerv3 + multi_step
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0016
+  Epoch 20/50: loss=0.0014
+  Epoch 30/50: loss=0.0012
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0011
+  Episode 5/10: reward=-27.421, avg_trust=0.853
+  Episode 10/10: reward=-24.142, avg_trust=0.856
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0022
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0013
+  Epoch 40/50: loss=0.0012
+  Epoch 50/50: loss=0.0011
+  Episode 5/10: reward=-44.065, avg_trust=0.382
+  Episode 10/10: reward=-38.772, avg_trust=0.430
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0035
+  Epoch 20/50: loss=0.0025
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-17.646, avg_trust=0.698
+  Episode 10/10: reward=-15.889, avg_trust=0.734
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0036
+  Epoch 20/50: loss=0.0023
+  Epoch 30/50: loss=0.0014
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-15.852, avg_trust=0.571
+  Episode 10/10: reward=-16.701, avg_trust=0.660
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0026
+  Epoch 20/50: loss=0.0021
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0016
+  Episode 5/10: reward=-33.759, avg_trust=0.462
+  Episode 10/10: reward=-37.124, avg_trust=0.702
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0022
+  Epoch 20/50: loss=0.0019
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0016
+  Episode 5/10: reward=-22.490, avg_trust=0.768
+  Episode 10/10: reward=-24.914, avg_trust=0.621
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0012
+  Epoch 20/50: loss=0.0009
+  Epoch 30/50: loss=0.0009
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0008
+  Episode 5/10: reward=-29.129, avg_trust=0.748
+  Episode 10/10: reward=-30.074, avg_trust=0.618
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0043
+  Epoch 20/50: loss=0.0030
+  Epoch 30/50: loss=0.0026
+  Epoch 40/50: loss=0.0027
+  Epoch 50/50: loss=0.0028
+  Episode 5/10: reward=-33.960, avg_trust=0.846
+  Episode 10/10: reward=-34.081, avg_trust=0.844
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0022
+  Epoch 20/50: loss=0.0016
+  Epoch 30/50: loss=0.0015
+  Epoch 40/50: loss=0.0015
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-66.977, avg_trust=0.473
+  Episode 10/10: reward=-44.122, avg_trust=0.297
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining dreamerv3 on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0029
+  Epoch 20/50: loss=0.0028
+  Epoch 30/50: loss=0.0027
+  Epoch 40/50: loss=0.0020
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-16.436, avg_trust=0.499
+  Episode 10/10: reward=-33.159, avg_trust=0.459
+
+>>> Average reward: -30.857
+
+============================================================
+Results saved to /home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/results_spatial_dreamerv3.json
+============================================================
+
+Summary:
+  dreamerv3    + none        : -27.984
+  dreamerv3    + ema         : -29.404
+  dreamerv3    + multi_step  : -30.857
+wandb: updating run metadata
+wandb: uploading output.log; uploading wandb-summary.json; uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb:           dreamerv3_ema/avg_reward ▁
+wandb: dreamerv3_ema/task_0_pretrain_loss ▁
+wandb:        dreamerv3_ema/task_0_reward ▁
+wandb: dreamerv3_ema/task_1_pretrain_loss ▁
+wandb:        dreamerv3_ema/task_1_reward ▁
+wandb: dreamerv3_ema/task_2_pretrain_loss ▁
+wandb:        dreamerv3_ema/task_2_reward ▁
+wandb: dreamerv3_ema/task_3_pretrain_loss ▁
+wandb:        dreamerv3_ema/task_3_reward ▁
+wandb: dreamerv3_ema/task_4_pretrain_loss ▁
+wandb:                                +53 ...
+wandb: 
+wandb: Run summary:
+wandb:                             device cuda
+wandb:           dreamerv3_ema/avg_reward -29.40356
+wandb: dreamerv3_ema/task_0_pretrain_loss 0.00117
+wandb:        dreamerv3_ema/task_0_reward -19.73927
+wandb: dreamerv3_ema/task_1_pretrain_loss 0.00107
+wandb:        dreamerv3_ema/task_1_reward -28.88272
+wandb: dreamerv3_ema/task_2_pretrain_loss 0.00119
+wandb:        dreamerv3_ema/task_2_reward -22.18917
+wandb: dreamerv3_ema/task_3_pretrain_loss 0.0015
+wandb:        dreamerv3_ema/task_3_reward -18.69172
+wandb:                                +57 ...
+wandb: 
+wandb: 🚀 View run libero_libero_spatial_cuda at: https://wandb.ai/chaleong/continualwam/runs/b8h06l94
+wandb: ⭐️ View project at: https://wandb.ai/chaleong/continualwam
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260831_032849-b8h06l94/logs
