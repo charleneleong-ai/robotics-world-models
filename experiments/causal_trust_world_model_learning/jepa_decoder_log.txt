@@ -1,0 +1,19 @@
+
+============================================================
+  JEPA with Decoder-Aware Trust
+============================================================
+Loaded 10 tasks
+  Seed 0: none=0.1894 decoder=0.1291 latent=0.2709 (31.0s)
+  Seed 1: none=0.1975 decoder=0.1298 latent=0.3072 (29.0s)
+  Seed 2: none=0.2016 decoder=0.1289 latent=0.2716 (28.6s)
+  Seed 3: none=0.2063 decoder=0.1285 latent=0.2526 (29.1s)
+  Seed 4: none=0.1932 decoder=0.1357 latent=0.2619 (29.0s)
+
+============================================================
+  Summary (mean ± std)
+============================================================
+  none           : 0.1976 ± 0.0060
+  decoder_trust  : 0.1304 ± 0.0027
+  latent_trust   : 0.2729 ± 0.0185
+
+Saved to /home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/jepa_decoder_trust.json
