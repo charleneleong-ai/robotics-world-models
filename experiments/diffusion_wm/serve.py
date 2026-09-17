@@ -56,16 +56,18 @@ class WAMPolicyServer:
 
     def _load_model(self, checkpoint_path: Path) -> None:
         from experiments.diffusion_wm.world_action_model import DiffusionWAM
+        from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
 
         ckpt = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         cfg = ckpt.get("config", {})
         model_sd = ckpt["model"]
-        # DiffusionWAM state_dict is nested: {"denoiser": ..., "timesteps": ..., "obs_dim": ..., ...}
+        hidden_dim = cfg.get("hidden_dim", 512)
+        ModelClass = ScaledDiffusionWAM if hidden_dim > 512 else DiffusionWAM
         if "denoiser" in model_sd:
-            self.model = DiffusionWAM(
+            self.model = ModelClass(
                 obs_dim=model_sd.get("obs_dim", cfg.get("obs_dim", 42)),
                 act_dim=model_sd.get("act_dim", cfg.get("act_dim", 7)),
-                hidden_dim=cfg.get("hidden_dim", 512),
+                hidden_dim=hidden_dim,
                 num_blocks=cfg.get("num_blocks", 6),
                 cond_dim=cfg.get("cond_dim", 256),
                 timesteps=model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
@@ -73,11 +75,10 @@ class WAMPolicyServer:
             ).to(self.device)
             self.model.load_state_dict(model_sd)
         else:
-            # Flat state dict from train.py (DynamicsMLP)
-            self.model = DiffusionWAM(
+            self.model = ModelClass(
                 obs_dim=cfg.get("obs_dim", 42),
                 act_dim=cfg.get("act_dim", 7),
-                hidden_dim=cfg.get("hidden_dim", 512),
+                hidden_dim=hidden_dim,
                 num_blocks=cfg.get("num_blocks", 6),
                 cond_dim=cfg.get("cond_dim", 256),
                 timesteps=cfg.get("diffusion_timesteps", 1000),
