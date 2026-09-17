@@ -572,6 +572,8 @@ def main(
     port: int = typer.Option(8000, help="Policy server port"),
     seed: int = typer.Option(42),
     demo_dir: Path = typer.Option(None, help="Path to downloaded ManiSkill demos for bootstrapping"),
+    hidden_dim: int = typer.Option(512, help="Hidden dimension for WAM"),
+    num_blocks: int = typer.Option(6, help="Number of residual blocks"),
 ) -> None:
     config = LoopConfig(
         task=task,
@@ -586,6 +588,8 @@ def main(
         port=port,
         seed=seed,
         demo_dir=demo_dir,
+        hidden_dim=hidden_dim,
+        num_blocks=num_blocks,
     )
     loop = SelfDrivingLoop(config)
     loop.run()
