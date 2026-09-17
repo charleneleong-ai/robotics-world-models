@@ -25,6 +25,7 @@ import wandb
 
 from experiments.diffusion_wm.dataset import create_dataloader
 from experiments.diffusion_wm.world_action_model import DiffusionWAM
+from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
 
 
 @dataclass
@@ -109,7 +110,8 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
     cfg.obs_dim, cfg.act_dim = obs_dim, act_dim
     print(f"Data: {cfg.data_dir} — obs_dim={obs_dim}, act_dim={act_dim}")
 
-    model = DiffusionWAM(
+    ModelClass = ScaledDiffusionWAM if cfg.hidden_dim > 512 else DiffusionWAM
+    model = ModelClass(
         obs_dim=obs_dim,
         act_dim=act_dim,
         hidden_dim=cfg.hidden_dim,
