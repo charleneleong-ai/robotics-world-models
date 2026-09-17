@@ -278,6 +278,34 @@ class ScaledDiffusionWAM(nn.Module):
         return x
 
     @torch.no_grad()
+    def predict_action(
+        self,
+        obs: torch.Tensor,
+        num_steps: int | None = None,
+    ) -> torch.Tensor:
+        """Generate action from observation (policy use)."""
+        return self.denoise_action(obs, num_steps=num_steps or 100)
+
+    @torch.no_grad()
+    def predict_action_chunk(
+        self,
+        obs: torch.Tensor,
+        horizon: int | None = None,
+        num_steps: int | None = None,
+    ) -> torch.Tensor:
+        """Generate a chunk of actions autoregressively."""
+        h = horizon or self.action_horizon
+        B = obs.size(0)
+        actions = []
+        s = obs
+        for _ in range(h):
+            a = self.predict_action(s, num_steps)
+            actions.append(a)
+            # Use predicted next state for next action
+            s = self.denoise_state(s, num_steps=num_steps or 100)
+        return torch.stack(actions, dim=1)
+
+    @torch.no_grad()
     def denoise_state(
         self,
         obs: torch.Tensor,
