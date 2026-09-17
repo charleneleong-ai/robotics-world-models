@@ -26,8 +26,8 @@ import torch
 import wandb
 from diffusers import AutoencoderKLWan, WanTransformer3DModel
 
-sys.path.insert(0, "/home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning")
-from task_order_sensitivity import SUITE_DIRS  # noqa: E402
+LIBERO = "/home/ubuntu/robotics_world_models/LIBERO"
+SUITE_DIRS = {s: f"{LIBERO}/libero_{s}" for s in ("spatial", "object", "goal")}
 
 SUITE = sys.argv[1] if len(sys.argv) > 1 else "spatial"
 CONTEXT = int(sys.argv[2]) if len(sys.argv) > 2 else 8

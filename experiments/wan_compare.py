@@ -27,9 +27,17 @@ from scipy import stats
 ROOT = "/home/ubuntu/wan_latents"
 CTXS = [1, 4, 8, 16]
 SOURCES = {"vae": f"{ROOT}/spatial_agentview_rgb",
-           **{f"dit_ctx{c}": f"{ROOT}/spatial_dit_ctx{c}" for c in CTXS}}
-REPS = ["state", "vae"] + [f"dit_ctx{c}" for c in CTXS] + ["dit_ctx16_state"]
+           **{f"dit_ctx{c}": f"{ROOT}/spatial_dit_ctx{c}" for c in CTXS},
+           "siglip2": f"{ROOT}/spatial_siglip2", "siglip2_ctx8": f"{ROOT}/spatial_siglip2_ctx8",
+           "openvla": f"{ROOT}/spatial_openvla", "openvla_ctx8": f"{ROOT}/spatial_openvla_ctx8"}
+# 1-frame group and 2-frame group are each internally matched on temporal context
+REPS = (["state", "vae", "dit_ctx1", "siglip2", "openvla"]
+        + ["dit_ctx4", "dit_ctx8", "dit_ctx16", "siglip2_ctx8", "openvla_ctx8"]
+        + ["openvla_ctx8_state"])
 N_TASKS, N_SEEDS, N_EVAL_DEMOS, EPOCHS, BATCH, LR = 10, 3, 2, 30, 256, 1e-3
+SOURCES = {k: v for k, v in SOURCES.items() if os.path.isdir(v) and os.path.exists(f"{v}/task00.npz")}
+REPS = [r for r in REPS if r == "state" or r.rstrip("_state") in SOURCES or r in SOURCES]
+REPS = [r for r in REPS if r == "state" or (r[:-6] if r.endswith("_state") else r) in SOURCES]
 DEVICE = "cuda"
 
 
@@ -74,11 +82,41 @@ def probe(xtr, ytr, xev, yev, seed: int) -> float:
         return float(F.mse_loss(net(xe), ye))
 
 
+def summarise(pt: dict[str, np.ndarray], refs: list[str]) -> wandb.Table:
+    dims = {r: (load(0)[r[:-6]].shape[1] + 21 if r.endswith("_state")
+                else 21 if r == "state" else load(0)[r].shape[1]) for r in REPS}
+    tbl = wandb.Table(columns=["rep", "dims", "mse"] + [c for r in refs for c in (f"vs_{r}_%", f"p_{r}")])
+    for r in REPS:
+        row = [r, dims[r], round(float(pt[r].mean()), 5)]
+        for ref in refs:
+            row += ([None, None] if r == ref else
+                    [round(100 * (pt[r].mean() / pt[ref].mean() - 1), 2),
+                     round(float(stats.ttest_rel(pt[ref], pt[r])[1]), 5)])
+        tbl.add_data(*row)
+        wandb.summary[f"mse/{r}"] = float(pt[r].mean())
+        print("== %-19s dims=%5d  MSE %.4f   vs state %+7.1f%%" % (
+            r, dims[r], pt[r].mean(), 100 * (pt[r].mean() / pt["state"].mean() - 1)))
+    return tbl
+
+
+def report_pairs(pt: dict[str, np.ndarray]) -> None:
+    candidates = [(r, "state") for r in REPS if r != "state"]
+    candidates += [("siglip2", "vae"), ("openvla", "vae"), ("openvla", "dit_ctx1"), ("siglip2", "dit_ctx1"),
+                   ("openvla", "siglip2"), ("openvla_ctx8", "siglip2_ctx8"),
+                   ("openvla_ctx8", "dit_ctx8"), ("siglip2_ctx8", "dit_ctx8"),
+                   ("openvla_ctx8", "openvla"), ("siglip2_ctx8", "siglip2")]
+    for a, b in [(a, b) for a, b in candidates if a in REPS and b in REPS]:
+        p_val = float(stats.ttest_rel(pt[b], pt[a])[1])
+        wandb.summary[f"p/{a}_vs_{b}"] = p_val
+        print("   %-19s vs %-12s %+7.1f%%  p=%.4f  %d/%d tasks" % (
+            a, b, 100 * (pt[a].mean() / pt[b].mean() - 1), p_val,
+            int((pt[a] < pt[b]).sum()), N_TASKS))
+
+
 def main() -> None:
-    run = wandb.init(project="video-wam", job_type="compare", name="compare-context-curve",
+    run = wandb.init(project="video-wam", job_type="compare", name="compare-backbone-audit",
                      config=dict(suite="spatial", n_tasks=N_TASKS, n_seeds=N_SEEDS, reps=REPS,
-                                 backbone="Wan2.2-TI2V-5B", eval_demos_per_task=N_EVAL_DEMOS,
-                                 epochs=EPOCHS, renders_frames=False))
+                                 eval_demos_per_task=N_EVAL_DEMOS, epochs=EPOCHS, renders_frames=False))
     err = {r: np.zeros((N_TASKS, N_SEEDS)) for r in REPS}
     for ti in range(N_TASKS):
         d = load(ti)
@@ -92,28 +130,9 @@ def main() -> None:
         print("task %d  " % ti + "  ".join("%s=%.4f" % (r, err[r][ti].mean()) for r in REPS), flush=True)
 
     pt = {r: err[r].mean(1) for r in REPS}
-    dims = {r: (21 if r == "state" else 3093 if r.endswith("_state") else 3072) for r in REPS}
-    tbl = wandb.Table(columns=["rep", "dims", "mse", "vs_state_%", "p_state", "vs_ctx1_%", "p_ctx1", "vs_vae_%", "p_vae"])
     print()
-    for r in REPS:
-        row = [r, dims[r], round(float(pt[r].mean()), 5)]
-        for ref in ("state", "dit_ctx1", "vae"):
-            if r == ref:
-                row += [None, None]
-            else:
-                row += [round(100 * (pt[r].mean() / pt[ref].mean() - 1), 2),
-                        round(float(stats.ttest_rel(pt[ref], pt[r])[1]), 5)]
-        tbl.add_data(*row)
-        wandb.summary[f"mse/{r}"] = float(pt[r].mean())
-        print("== %-15s dims=%5d  MSE %.4f   vs state %+7.1f%%   vs ctx1 %+7.1f%%" % (
-            r, dims[r], pt[r].mean(), 100 * (pt[r].mean() / pt["state"].mean() - 1),
-            100 * (pt[r].mean() / pt["dit_ctx1"].mean() - 1)))
-    pairs = [(f"dit_ctx{c}", "state") for c in CTXS] + [("dit_ctx16", "dit_ctx8"), ("dit_ctx16", "dit_ctx1"), ("dit_ctx16_state", "state")]
-    for a, b in pairs:
-        p = float(stats.ttest_rel(pt[b], pt[a])[1])
-        wandb.summary[f"p/{a}_vs_{b}"] = p
-        print("   %-16s vs %-10s %+7.1f%%  p=%.4f  better in %d/%d tasks" % (
-            a, b, 100 * (pt[a].mean() / pt[b].mean() - 1), p, int((pt[a] < pt[b]).sum()), N_TASKS))
+    tbl = summarise(pt, [x for x in ("state", "dit_ctx1", "vae") if x in REPS])
+    report_pairs(pt)
     wandb.log({"results": tbl})
     np.savez(f"{ROOT}/compare_results.npz", **err)
     run.finish()
