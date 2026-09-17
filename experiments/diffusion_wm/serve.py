@@ -63,27 +63,22 @@ class WAMPolicyServer:
         model_sd = ckpt["model"]
         hidden_dim = cfg.get("hidden_dim", 512)
         ModelClass = ScaledDiffusionWAM if hidden_dim > 512 else DiffusionWAM
-        if "denoiser" in model_sd:
-            self.model = ModelClass(
-                obs_dim=model_sd.get("obs_dim", cfg.get("obs_dim", 42)),
-                act_dim=model_sd.get("act_dim", cfg.get("act_dim", 7)),
-                hidden_dim=hidden_dim,
-                num_blocks=cfg.get("num_blocks", 6),
-                cond_dim=cfg.get("cond_dim", 256),
-                timesteps=model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
-                action_horizon=model_sd.get("action_horizon", cfg.get("action_horizon", 1)),
-            ).to(self.device)
-            self.model.load_state_dict(model_sd)
+
+        obs_dim = model_sd.get("obs_dim", cfg.get("obs_dim", 42))
+        act_dim = model_sd.get("act_dim", cfg.get("act_dim", 7))
+        timesteps = model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000))
+        action_horizon = model_sd.get("action_horizon", cfg.get("action_horizon", 1))
+
+        self.model = ModelClass(
+            obs_dim=obs_dim, act_dim=act_dim,
+            hidden_dim=hidden_dim, num_blocks=cfg.get("num_blocks", 6),
+            cond_dim=cfg.get("cond_dim", 256),
+            timesteps=timesteps, action_horizon=action_horizon,
+        ).to(self.device)
+
+        if "denoiser" in model_sd and isinstance(model_sd["denoiser"], dict):
+            self.model.denoiser.load_state_dict(model_sd["denoiser"])
         else:
-            self.model = ModelClass(
-                obs_dim=cfg.get("obs_dim", 42),
-                act_dim=cfg.get("act_dim", 7),
-                hidden_dim=hidden_dim,
-                num_blocks=cfg.get("num_blocks", 6),
-                cond_dim=cfg.get("cond_dim", 256),
-                timesteps=cfg.get("diffusion_timesteps", 1000),
-                action_horizon=cfg.get("action_horizon", 1),
-            ).to(self.device)
             self.model.load_state_dict(model_sd)
         print(f"Loaded WAM from {checkpoint_path} (obs_dim={self.model.obs_dim}, act_dim={self.model.act_dim})")
 
