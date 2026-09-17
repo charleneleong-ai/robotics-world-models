@@ -25,6 +25,7 @@ import wandb
 
 from experiments.diffusion_wm.dataset import create_dataloader
 from experiments.diffusion_wm.world_action_model import DiffusionWAM
+from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
 
 
 @dataclass
@@ -109,15 +110,26 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
     cfg.obs_dim, cfg.act_dim = obs_dim, act_dim
     print(f"Data: {cfg.data_dir} — obs_dim={obs_dim}, act_dim={act_dim}")
 
-    model = DiffusionWAM(
-        obs_dim=obs_dim,
-        act_dim=act_dim,
-        hidden_dim=cfg.hidden_dim,
-        num_blocks=cfg.num_blocks,
-        cond_dim=cfg.cond_dim,
-        timesteps=cfg.diffusion_timesteps,
-        action_horizon=cfg.action_horizon,
-    ).to(device)
+    if cfg.hidden_dim > 512:
+        model = ScaledDiffusionWAM(
+            obs_dim=obs_dim,
+            act_dim=act_dim,
+            hidden_dim=cfg.hidden_dim,
+            num_blocks=cfg.num_blocks,
+            cond_dim=cfg.cond_dim,
+            timesteps=cfg.diffusion_timesteps,
+            action_horizon=cfg.action_horizon,
+        ).to(device)
+    else:
+        model = DiffusionWAM(
+            obs_dim=obs_dim,
+            act_dim=act_dim,
+            hidden_dim=cfg.hidden_dim,
+            num_blocks=cfg.num_blocks,
+            cond_dim=cfg.cond_dim,
+            timesteps=cfg.diffusion_timesteps,
+            action_horizon=cfg.action_horizon,
+        ).to(device)
 
     param_count = sum(p.numel() for p in model.parameters())
     print(f"Model: {param_count:,} parameters")
