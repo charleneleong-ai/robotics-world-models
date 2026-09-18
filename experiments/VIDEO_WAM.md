@@ -132,6 +132,11 @@ for M in 100 2000; do                                              # EWC on top 
   done
 done
 $V experiments/combo_table.py
+for L in 10000 100000 1000000 10000000; do                         # online EWC sweep
+  $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --ewc-lambda $L --ewc-online \
+     --out ~/wan_latents/continual_online_$L.json
+done
+$V experiments/sweep_table.py --pattern 'continual_online_*.json' --axis strength
 ```
 
 Caches land in `~/wan_latents/` (32-113 MB per representation, derived, not tracked). All
@@ -357,6 +362,67 @@ Percentage changes in forgetting at memory 2000 are quoted as absolutes above be
 baselines there are near zero and ratios on them are meaningless.
 
 Aggregate with `combo_table.py`.
+
+### Online EWC: the right EWC, still the wrong choice
+
+Online EWC is better than the textbook form on four of five arms while storing ten times less.
+It is still beaten by a hundred stored frames, which also cost less.
+
+The online variant keeps a single running Fisher, decayed by gamma before each new task's
+estimate is folded in, anchored at the most recent parameters. What it stores is two copies of
+the parameter vector regardless of how many tasks arrive, which is the only version of EWC with
+a genuine storage argument: the textbook form used above stores a Fisher and an anchor per task,
+and at ten tasks that is more than the replay buffer that beats it.
+
+| representation | textbook EWC | online EWC | best lambda |
+|---|---|---|---|
+| state | 0.0691 | **0.0655** | 1e5 |
+| siglip2 | 0.1347 | **0.1296** | 1e5 |
+| siglip2_ctx8 | 0.0990 | **0.0947** | 1e5 |
+| openvla | 0.1107 | 0.1114 | 1e5 |
+| openvla_ctx8 | 0.0822 | **0.0759** | 1e6 |
+
+Decay does not help, and the obvious objection to that was tested. At gamma below 1 the running
+Fisher is bounded near `1/(1-gamma)` times a typical Fisher, against roughly `t` times it at
+gamma 1, so the same strength is a weaker penalty and a like-for-like sweep needs higher
+strengths. Those were run -- 2e6 and 5e6 at gamma 0.9, 5e6 and 1e7 at gamma 0.5 -- and they were
+worse, not better. Each decayed variant's optimum stayed at the same strength as gamma 1's, so
+the shift the scaling argument predicts did not appear.
+
+| representation | gamma 1.0 | gamma 0.9 | gamma 0.5 |
+|---|---|---|---|
+| state | **0.0655** | 0.0663 | 0.0668 |
+| siglip2_ctx8 | **0.0947** | 0.0976 | 0.0994 |
+| openvla_ctx8 | **0.0759** | 0.0777 | 0.0781 |
+
+Each column is that variant's best over its own strength sweep. Pure accumulation wins on every
+arm, which is also the form the Laplace-recursion reading of online EWC calls for.
+
+**Replay at a hundred frames dominates it on both axes.** Lower error on every arm, 6 of 6
+orderings, and less storage:
+
+| representation | online EWC | replay 100 frames | error | storage |
+|---|---|---|---|---|
+| state | 0.0655 | **0.0579** | p=0.012 | 0.16 vs 0.01 MB, 16x |
+| siglip2 | 0.1296 | **0.1177** | p=0.001 | 1.31 vs 0.46 MB, 2.8x |
+| siglip2_ctx8 | 0.0947 | **0.0811** | p<0.001 | 2.50 vs 0.92 MB, 2.7x |
+| openvla | 0.1114 | **0.0992** | p<0.001 | 2.31 vs 0.87 MB, 2.7x |
+| openvla_ctx8 | 0.0759 | **0.0635** | p<0.001 | 4.60 vs 1.74 MB, 2.6x |
+
+The storage column is the point. Online EWC's cost is set by the parameter count, not by the
+data: it holds two copies of a weight matrix whose first layer is `width` times larger than a
+single feature vector. At width 128 that is the same bytes as roughly 264 stored frames for
+`openvla_ctx8` and 1445 for state, and replay needs far fewer than that to win.
+
+So the storage argument for EWC does not survive contact with the numbers on this benchmark,
+even in the variant built to make it. What survives is the constraint argument: if the data
+cannot be retained at all, online EWC is the variant to reach for, and it is meaningfully better
+than the textbook form at a tenth of the footprint.
+
+Two caveats on the storage comparison. Feature-space replay is cheap here because the encoder
+output is cached; a system that stores images and re-encodes pays compute per replay batch that
+this accounting ignores. And EWC's footprint scales with the head, so a much larger learner on a
+much smaller feature vector would move the crossover in EWC's favour.
 
 Run with `continual_probe.py --n-orderings 6 --n-seeds 3` (add `--pca-dim 21` for the control).
 Both runs are in the `video-wam` W&B project with per-step retention curves, a summary table,
