@@ -1,0 +1,438 @@
+============================================================
+LIBERO Expert Demo Pretraining + Trust Fine-tuning
+============================================================
+Suite: libero_spatial
+Tasks: 10
+Backbones: ['rssm']
+Trusts: ['none', 'ema', 'multi_step']
+Device: cuda
+
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/ubuntu/.netrc.
+wandb: Currently logged in as: chaleong to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+wandb: Tracking run with wandb version 0.28.1
+wandb: Run data is saved locally in /home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/wandb/run-20260831_032846-k9mpoc0v
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run libero_libero_spatial_cuda
+wandb: ⭐️ View project at https://wandb.ai/chaleong/continualwam
+wandb: 🚀 View run at https://wandb.ai/chaleong/continualwam/runs/k9mpoc0v
+
+========================================
+Config: rssm + none
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0016
+  Epoch 20/50: loss=0.0014
+  Epoch 30/50: loss=0.0011
+  Epoch 40/50: loss=0.0011
+  Epoch 50/50: loss=0.0013
+  Episode 5/10: reward=-17.923, avg_trust=1.000
+  Episode 10/10: reward=-15.027, avg_trust=1.000
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0022
+  Epoch 20/50: loss=0.0013
+  Epoch 30/50: loss=0.0012
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0010
+  Episode 5/10: reward=-27.069, avg_trust=1.000
+  Episode 10/10: reward=-27.060, avg_trust=1.000
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0037
+  Epoch 20/50: loss=0.0025
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0021
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-12.902, avg_trust=1.000
+  Episode 10/10: reward=-16.178, avg_trust=1.000
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0038
+  Epoch 20/50: loss=0.0026
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0015
+  Epoch 50/50: loss=0.0013
+  Episode 5/10: reward=-18.142, avg_trust=1.000
+  Episode 10/10: reward=-16.875, avg_trust=1.000
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0029
+  Epoch 20/50: loss=0.0021
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-40.171, avg_trust=1.000
+  Episode 10/10: reward=-38.736, avg_trust=1.000
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0025
+  Epoch 20/50: loss=0.0018
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0016
+  Episode 5/10: reward=-37.711, avg_trust=1.000
+  Episode 10/10: reward=-41.764, avg_trust=1.000
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0011
+  Epoch 20/50: loss=0.0008
+  Epoch 30/50: loss=0.0007
+  Epoch 40/50: loss=0.0008
+  Epoch 50/50: loss=0.0007
+  Episode 5/10: reward=-13.784, avg_trust=1.000
+  Episode 10/10: reward=-16.033, avg_trust=1.000
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0041
+  Epoch 20/50: loss=0.0030
+  Epoch 30/50: loss=0.0027
+  Epoch 40/50: loss=0.0029
+  Epoch 50/50: loss=0.0030
+  Episode 5/10: reward=-51.515, avg_trust=1.000
+  Episode 10/10: reward=-46.508, avg_trust=1.000
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0040
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0015
+  Epoch 40/50: loss=0.0014
+  Epoch 50/50: loss=0.0014
+  Episode 5/10: reward=-63.843, avg_trust=1.000
+  Episode 10/10: reward=-55.026, avg_trust=1.000
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0030
+  Epoch 20/50: loss=0.0028
+  Epoch 30/50: loss=0.0028
+  Epoch 40/50: loss=0.0020
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-18.597, avg_trust=1.000
+  Episode 10/10: reward=-32.988, avg_trust=1.000
+
+>>> Average reward: -29.935
+
+========================================
+Config: rssm + ema
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0016
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0010
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-15.895, avg_trust=0.539
+  Episode 10/10: reward=-15.524, avg_trust=0.460
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0029
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0012
+  Epoch 40/50: loss=0.0011
+  Epoch 50/50: loss=0.0010
+  Episode 5/10: reward=-14.849, avg_trust=0.206
+  Episode 10/10: reward=-25.216, avg_trust=0.489
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0038
+  Epoch 20/50: loss=0.0024
+  Epoch 30/50: loss=0.0020
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0013
+  Episode 5/10: reward=-16.157, avg_trust=0.377
+  Episode 10/10: reward=-16.900, avg_trust=0.203
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0040
+  Epoch 20/50: loss=0.0026
+  Epoch 30/50: loss=0.0014
+  Epoch 40/50: loss=0.0015
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-34.060, avg_trust=0.300
+  Episode 10/10: reward=-14.091, avg_trust=0.257
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0028
+  Epoch 20/50: loss=0.0021
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-30.673, avg_trust=0.257
+  Episode 10/10: reward=-40.508, avg_trust=0.525
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0024
+  Epoch 20/50: loss=0.0019
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-41.122, avg_trust=0.457
+  Episode 10/10: reward=-41.275, avg_trust=0.455
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0012
+  Epoch 20/50: loss=0.0009
+  Epoch 30/50: loss=0.0008
+  Epoch 40/50: loss=0.0009
+  Epoch 50/50: loss=0.0008
+  Episode 5/10: reward=-23.529, avg_trust=0.422
+  Episode 10/10: reward=-23.581, avg_trust=0.420
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0039
+  Epoch 20/50: loss=0.0029
+  Epoch 30/50: loss=0.0027
+  Epoch 40/50: loss=0.0029
+  Epoch 50/50: loss=0.0029
+  Episode 5/10: reward=-35.631, avg_trust=0.292
+  Episode 10/10: reward=-50.544, avg_trust=0.293
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0021
+  Epoch 20/50: loss=0.0015
+  Epoch 30/50: loss=0.0014
+  Epoch 40/50: loss=0.0014
+  Epoch 50/50: loss=0.0011
+  Episode 5/10: reward=-49.682, avg_trust=0.440
+  Episode 10/10: reward=-48.263, avg_trust=0.512
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0028
+  Epoch 20/50: loss=0.0024
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0021
+  Epoch 50/50: loss=0.0020
+  Episode 5/10: reward=-11.822, avg_trust=0.124
+  Episode 10/10: reward=-20.249, avg_trust=0.207
+
+>>> Average reward: -27.932
+
+========================================
+Config: rssm + multi_step
+========================================
+
+--- Task 0 ---
+Loading demos from: pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 96
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0017
+  Epoch 20/50: loss=0.0013
+  Epoch 30/50: loss=0.0011
+  Epoch 40/50: loss=0.0010
+  Epoch 50/50: loss=0.0010
+  Episode 5/10: reward=-22.111, avg_trust=0.564
+  Episode 10/10: reward=-19.217, avg_trust=0.801
+
+--- Task 1 ---
+Loading demos from: pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 120
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0028
+  Epoch 20/50: loss=0.0017
+  Epoch 30/50: loss=0.0013
+  Epoch 40/50: loss=0.0011
+  Epoch 50/50: loss=0.0010
+  Episode 5/10: reward=-42.331, avg_trust=0.784
+  Episode 10/10: reward=-40.003, avg_trust=0.635
+
+--- Task 2 ---
+Loading demos from: pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 148
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0038
+  Epoch 20/50: loss=0.0025
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0018
+  Epoch 50/50: loss=0.0015
+  Episode 5/10: reward=-24.561, avg_trust=0.612
+  Episode 10/10: reward=-28.589, avg_trust=0.647
+
+--- Task 3 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 125
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0037
+  Epoch 20/50: loss=0.0026
+  Epoch 30/50: loss=0.0015
+  Epoch 40/50: loss=0.0015
+  Epoch 50/50: loss=0.0016
+  Episode 5/10: reward=-17.502, avg_trust=0.904
+  Episode 10/10: reward=-15.278, avg_trust=0.650
+
+--- Task 4 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 123
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0023
+  Epoch 20/50: loss=0.0021
+  Epoch 30/50: loss=0.0017
+  Epoch 40/50: loss=0.0017
+  Epoch 50/50: loss=0.0017
+  Episode 5/10: reward=-20.122, avg_trust=0.818
+  Episode 10/10: reward=-13.871, avg_trust=0.808
+
+--- Task 5 ---
+Loading demos from: pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 127
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0023
+  Epoch 20/50: loss=0.0019
+  Epoch 30/50: loss=0.0018
+  Epoch 40/50: loss=0.0016
+  Epoch 50/50: loss=0.0018
+  Episode 5/10: reward=-33.595, avg_trust=0.329
+  Episode 10/10: reward=-33.410, avg_trust=0.335
+
+--- Task 6 ---
+Loading demos from: pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 99
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0012
+  Epoch 20/50: loss=0.0010
+  Epoch 30/50: loss=0.0009
+  Epoch 40/50: loss=0.0008
+  Epoch 50/50: loss=0.0008
+  Episode 5/10: reward=-12.836, avg_trust=0.766
+  Episode 10/10: reward=-12.212, avg_trust=0.769
+
+--- Task 7 ---
+Loading demos from: pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 122
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0037
+  Epoch 20/50: loss=0.0029
+  Epoch 30/50: loss=0.0027
+  Epoch 40/50: loss=0.0029
+  Epoch 50/50: loss=0.0032
+  Episode 5/10: reward=-41.242, avg_trust=0.559
+  Episode 10/10: reward=-36.892, avg_trust=0.757
+
+--- Task 8 ---
+Loading demos from: pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 140
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0020
+  Epoch 20/50: loss=0.0016
+  Epoch 30/50: loss=0.0015
+  Epoch 40/50: loss=0.0014
+  Epoch 50/50: loss=0.0012
+  Episode 5/10: reward=-47.218, avg_trust=0.383
+  Episode 10/10: reward=-66.107, avg_trust=0.758
+
+--- Task 9 ---
+Loading demos from: pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo.hdf5
+Loaded 10 demos, avg length: 146
+Pretraining rssm on 10 demos (device=cuda)...
+  Epoch 10/50: loss=0.0028
+  Epoch 20/50: loss=0.0026
+  Epoch 30/50: loss=0.0022
+  Epoch 40/50: loss=0.0021
+  Epoch 50/50: loss=0.0019
+  Episode 5/10: reward=-16.658, avg_trust=0.473
+  Episode 10/10: reward=-26.008, avg_trust=0.547
+
+>>> Average reward: -28.751
+
+============================================================
+Results saved to /home/ubuntu/robotics_world_models/experiments/causal_trust_world_model_learning/results_spatial_rssm.json
+============================================================
+
+Summary:
+  rssm         + none        : -29.935
+  rssm         + ema         : -27.932
+  rssm         + multi_step  : -28.751
+wandb: updating run metadata
+wandb: uploading output.log; uploading wandb-summary.json; uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb:           rssm_ema/avg_reward ▁
+wandb: rssm_ema/task_0_pretrain_loss ▁
+wandb:        rssm_ema/task_0_reward ▁
+wandb: rssm_ema/task_1_pretrain_loss ▁
+wandb:        rssm_ema/task_1_reward ▁
+wandb: rssm_ema/task_2_pretrain_loss ▁
+wandb:        rssm_ema/task_2_reward ▁
+wandb: rssm_ema/task_3_pretrain_loss ▁
+wandb:        rssm_ema/task_3_reward ▁
+wandb: rssm_ema/task_4_pretrain_loss ▁
+wandb:                           +53 ...
+wandb: 
+wandb: Run summary:
+wandb:                        device cuda
+wandb:           rssm_ema/avg_reward -27.93202
+wandb: rssm_ema/task_0_pretrain_loss 0.00121
+wandb:        rssm_ema/task_0_reward -16.46596
+wandb: rssm_ema/task_1_pretrain_loss 0.00105
+wandb:        rssm_ema/task_1_reward -19.30984
+wandb: rssm_ema/task_2_pretrain_loss 0.00133
+wandb:        rssm_ema/task_2_reward -17.52794
+wandb: rssm_ema/task_3_pretrain_loss 0.00154
+wandb:        rssm_ema/task_3_reward -23.61152
+wandb:                           +57 ...
+wandb: 
+wandb: 🚀 View run libero_libero_spatial_cuda at: https://wandb.ai/chaleong/continualwam/runs/k9mpoc0v
+wandb: ⭐️ View project at: https://wandb.ai/chaleong/continualwam
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260831_032846-k9mpoc0v/logs

@@ -56,33 +56,29 @@ class WAMPolicyServer:
 
     def _load_model(self, checkpoint_path: Path) -> None:
         from experiments.diffusion_wm.world_action_model import DiffusionWAM
+        from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
 
         ckpt = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         cfg = ckpt.get("config", {})
         model_sd = ckpt["model"]
-        # DiffusionWAM state_dict is nested: {"denoiser": ..., "timesteps": ..., "obs_dim": ..., ...}
-        if "denoiser" in model_sd:
-            self.model = DiffusionWAM(
-                obs_dim=model_sd.get("obs_dim", cfg.get("obs_dim", 42)),
-                act_dim=model_sd.get("act_dim", cfg.get("act_dim", 7)),
-                hidden_dim=cfg.get("hidden_dim", 512),
-                num_blocks=cfg.get("num_blocks", 6),
-                cond_dim=cfg.get("cond_dim", 256),
-                timesteps=model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
-                action_horizon=model_sd.get("action_horizon", cfg.get("action_horizon", 1)),
-            ).to(self.device)
-            self.model.load_state_dict(model_sd)
+        hidden_dim = cfg.get("hidden_dim", 512)
+        ModelClass = ScaledDiffusionWAM if hidden_dim > 512 else DiffusionWAM
+
+        obs_dim = model_sd.get("obs_dim", cfg.get("obs_dim", 42))
+        act_dim = model_sd.get("act_dim", cfg.get("act_dim", 7))
+        timesteps = model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000))
+        action_horizon = model_sd.get("action_horizon", cfg.get("action_horizon", 1))
+
+        self.model = ModelClass(
+            obs_dim=obs_dim, act_dim=act_dim,
+            hidden_dim=hidden_dim, num_blocks=cfg.get("num_blocks", 6),
+            cond_dim=cfg.get("cond_dim", 256),
+            timesteps=timesteps, action_horizon=action_horizon,
+        ).to(self.device)
+
+        if "denoiser" in model_sd and isinstance(model_sd["denoiser"], dict):
+            self.model.denoiser.load_state_dict(model_sd["denoiser"])
         else:
-            # Flat state dict from train.py (DynamicsMLP)
-            self.model = DiffusionWAM(
-                obs_dim=cfg.get("obs_dim", 42),
-                act_dim=cfg.get("act_dim", 7),
-                hidden_dim=cfg.get("hidden_dim", 512),
-                num_blocks=cfg.get("num_blocks", 6),
-                cond_dim=cfg.get("cond_dim", 256),
-                timesteps=cfg.get("diffusion_timesteps", 1000),
-                action_horizon=cfg.get("action_horizon", 1),
-            ).to(self.device)
             self.model.load_state_dict(model_sd)
         print(f"Loaded WAM from {checkpoint_path} (obs_dim={self.model.obs_dim}, act_dim={self.model.act_dim})")
 
