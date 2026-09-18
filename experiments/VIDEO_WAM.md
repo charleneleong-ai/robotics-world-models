@@ -112,6 +112,9 @@ $V experiments/backbone_extract.py siglip2
 python3  experiments/backbone_extract.py openvla           # system python
 $V experiments/wan_compare.py                              # skips absent caches
 $V experiments/state_decode.py
+$V experiments/continual_probe.py --n-orderings 6 --n-seeds 3   # sequential tasks
+$V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --pca-dim 21 \
+   --out ~/wan_latents/continual_results_pca21.json                 # width control
 ```
 
 Caches land in `~/wan_latents/` (32-113 MB per representation, derived, not tracked). All
@@ -124,6 +127,64 @@ this project's own track record that is the regime where apparent per-configurat
 turn out to be noise. For the DiT, block 15 of 30, a single noise level (t=100) and
 mean-pooling over tokens were each chosen once and never varied. The `_ctx8` variants for
 the image encoders use two frames while `dit_ctx8` sees two *latent* frames summarising
-eight, so those are matched on latent frames rather than on raw frames seen. Single-task
-imitation only -- whether a video representation *forgets* less across a task sequence is
-untested, and is the question that would connect this to the continual-learning line.
+eight, so those are matched on latent frames rather than on raw frames seen. The sequential-task results below
+use only the four image-encoder caches that survived eviction, so they say nothing about the
+Wan representations.
+
+## Sequential tasks: does a better representation forget less?
+
+No. On a single task `openvla_ctx8` matched proprioceptive state (-3.1%, p=0.75). Trained
+sequentially over the same ten tasks it is 24% worse at the end and forgets significantly
+more. Every learned representation tested loses to 21 numbers of proprioception.
+
+Six random orderings x 3 seeds, seeds averaged inside an ordering before testing, arms paired
+on identical orderings, held out by whole demonstration. Metrics are absolute: final error is
+the mean over all ten tasks after the last one is trained; absolute forgetting is a task's
+error at the end minus its error immediately after it was trained. The first-task-normalised
+forgetting *rate* is deliberately avoided -- the 40.8% reduction reported in `wm-pai` and since
+retracted was an artifact of that denominator.
+
+| Representation | Frames | Dims | Final error | vs state | Abs. forgetting | vs state |
+|---|---|---|---|---|---|---|
+| state | -- | 21 | 0.0910 | -- | +0.0599 | -- |
+| siglip2 | 1 | 1152 | 0.1793 | +96.9% | +0.1103 | p<0.001 |
+| openvla | 1 | 2176 | 0.1529 | +67.9% | +0.0880 | p=0.002 |
+| siglip2_ctx8 | 2 | 2304 | 0.1375 | +51.1% | +0.0979 | p<0.001 |
+| openvla_ctx8 | 2 | 4352 | 0.1129 | +24.0% | +0.0782 | p=0.014 |
+
+Temporal context helps here as it did on the single task, and it helps retention specifically,
+not just fit: absolute forgetting falls 11.3% for SigLIP2 (p=0.036, 5/6 orderings) and 11.1%
+for OpenVLA (p=0.009, 6/6). It is not enough to close the gap -- the best representation still
+forgets 23.5% more than state (p=0.015, 6/6).
+
+The per-step curves in W&B show where the damage happens. Mean error over tasks seen so far
+jumps at the first switch (state 0.045 to 0.079, `openvla_ctx8` 0.046 to 0.109) and is then
+flat for the remaining eight tasks. The representations differ in how much they lose on the
+first interference event, not in how they accumulate damage afterwards.
+
+### Width is not the explanation
+
+The obvious objection is that state is 21 numbers and the backbones are thousands, so the
+comparison rewards a narrow input. Projecting each representation to 21 dimensions with PCA
+fitted on training frames only makes every arm **worse**, not better:
+
+| Representation | Final error | PCA-21 final | Abs. forgetting | PCA-21 |
+|---|---|---|---|---|
+| siglip2 | 0.1793 | 0.2153 | +0.1103 | +0.1194 |
+| siglip2_ctx8 | 0.1375 | 0.1756 | +0.0979 | +0.1074 |
+| openvla | 0.1529 | 0.1857 | +0.0880 | +0.1086 |
+| openvla_ctx8 | 0.1129 | 0.1469 | +0.0782 | +0.0919 |
+
+Width-matching costs `openvla_ctx8` 23.1% in final error (p=0.008, 6/6). Whatever proprioception
+has that these representations lack, it is not low dimensionality. The plausible remaining
+account is that the state vector is already the causally relevant variable, so tasks share a
+coordinate system and updates transfer; the visual codes are task-shaped and overwrite.
+
+Run with `continual_probe.py --n-orderings 6 --n-seeds 3` (add `--pca-dim 21` for the control).
+Both runs are in the `video-wam` W&B project with per-step retention curves, a summary table,
+and a `continual-forgetting` results artifact holding per-ordering values.
+
+Six orderings is little power, and the p-values are uncorrected across the nine arms tested
+against the same reference. This ran after the Wan caches and the 22 GB backbone were evicted
+from the box, so the VAE and DiT rows are missing; the script picks them up automatically once
+`~/wan_latents/spatial_dit_ctx8` and friends exist again.
