@@ -28,6 +28,7 @@ import typer
 from experiments.diffusion_wm.collector import ManiSkillCollector
 from experiments.diffusion_wm.fidelity import DivergenceDetector
 from experiments.diffusion_wm.world_action_model import DiffusionWAM
+from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
 
 
 @dataclass
@@ -428,30 +429,30 @@ class SelfDrivingLoop:
 
         return merged
 
-    def _load_model(self, checkpoint_path: Path) -> DiffusionWAM:
+    def _load_model(self, checkpoint_path: Path) -> DiffusionWAM | ScaledDiffusionWAM:
         """Load WAM from checkpoint."""
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
         cfg = ckpt.get("config", {})
         model_sd = ckpt["model"]
-        if "denoiser" in model_sd:
-            # DiffusionWAM nested state_dict
-            model = DiffusionWAM(
-                obs_dim=model_sd.get("obs_dim", cfg.get("obs_dim", 42)),
-                act_dim=model_sd.get("act_dim", cfg.get("act_dim", 7)),
-                hidden_dim=cfg.get("hidden_dim", 512),
-                num_blocks=cfg.get("num_blocks", 6),
-                timesteps=model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
-            ).to(device)
-            model.load_state_dict(model_sd)
+        hidden_dim = cfg.get("hidden_dim", 512)
+        ModelClass = ScaledDiffusionWAM if hidden_dim > 512 else DiffusionWAM
+
+        obs_dim = model_sd.get("obs_dim", cfg.get("obs_dim", 42))
+        act_dim = model_sd.get("act_dim", cfg.get("act_dim", 7))
+        timesteps = model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000))
+        action_horizon = model_sd.get("action_horizon", cfg.get("action_horizon", 1))
+
+        model = ModelClass(
+            obs_dim=obs_dim, act_dim=act_dim,
+            hidden_dim=hidden_dim, num_blocks=cfg.get("num_blocks", 6),
+            cond_dim=cfg.get("cond_dim", 256),
+            timesteps=timesteps, action_horizon=action_horizon,
+        ).to(device)
+
+        if "denoiser" in model_sd and isinstance(model_sd["denoiser"], dict):
+            model.denoiser.load_state_dict(model_sd["denoiser"])
         else:
-            model = DiffusionWAM(
-                obs_dim=cfg.get("obs_dim", 42),
-                act_dim=cfg.get("act_dim", 7),
-                hidden_dim=cfg.get("hidden_dim", 512),
-                num_blocks=cfg.get("num_blocks", 6),
-                timesteps=cfg.get("diffusion_timesteps", 1000),
-            ).to(device)
             model.load_state_dict(model_sd)
         model.eval()
         return model
