@@ -115,6 +115,11 @@ $V experiments/state_decode.py
 $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3   # sequential tasks
 $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --pca-dim 21 \
    --out ~/wan_latents/continual_results_pca21.json                 # width control
+for L in 0 10000 100000 1000000 10000000 100000000; do             # EWC lambda sweep
+  $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --ewc-lambda $L \
+     --out ~/wan_latents/continual_ewc_$L.json
+done
+$V experiments/ewc_table.py
 ```
 
 Caches land in `~/wan_latents/` (32-113 MB per representation, derived, not tracked). All
@@ -179,6 +184,63 @@ Width-matching costs `openvla_ctx8` 23.1% in final error (p=0.008, 6/6). Whateve
 has that these representations lack, it is not low dimensionality. The plausible remaining
 account is that the state vector is already the causally relevant variable, so tasks share a
 coordinate system and updates transfer; the visual codes are task-shaped and overwrite.
+
+
+### Does EWC close the gap?
+
+No. Consolidation helps every arm by about the same amount, so the ordering survives.
+
+Diagonal-Fisher EWC, the textbook multi-task form with one curvature estimate and one anchor
+per completed task, swept over lambda and applied to *every* arm including proprioception.
+Applying it only to the representations would have answered a different question.
+
+Final error by lambda (lower is better; the lambda=0 row reproduces the unregularised numbers
+above to four decimals, which is the check that the penalty is inert when switched off):
+
+| lambda | state | siglip2 | siglip2_ctx8 | openvla | openvla_ctx8 |
+|---|---|---|---|---|---|
+| 0 | 0.0910 | 0.1793 | 0.1375 | 0.1529 | 0.1129 |
+| 1e4 | 0.0722 | 0.1478 | 0.1313 | 0.1338 | 0.1085 |
+| 1e5 | **0.0691** | **0.1347** | **0.0990** | **0.1107** | 0.0994 |
+| 1e6 | 0.0822 | 0.1475 | 0.1103 | 0.1159 | **0.0822** |
+| 1e7 | 0.1021 | 0.1990 | 0.1591 | 0.1594 | 0.1143 |
+| 1e8 | 0.1101 | 0.2396 | 0.1961 | 0.1887 | 0.1538 |
+
+At its own best lambda every representation improves by 24-28%, and the gap to state barely
+moves: `openvla_ctx8` goes from +24.0% to +19.0% (0.0822 vs 0.0691, p=0.0007, 0 of 6 orderings
+favouring the representation). EWC is a large effect that is close to representation-agnostic.
+
+| Representation | best lambda | lambda=0 | tuned | change | vs tuned state |
+|---|---|---|---|---|---|
+| state | 1e5 | 0.0910 | 0.0691 | -24.1% | -- |
+| siglip2 | 1e5 | 0.1793 | 0.1347 | -24.9% | +94.9% |
+| openvla | 1e5 | 0.1529 | 0.1107 | -27.6% | +60.3% |
+| siglip2_ctx8 | 1e5 | 0.1375 | 0.0990 | -28.0% | +43.3% |
+| openvla_ctx8 | 1e6 | 0.1129 | 0.0822 | -27.2% | +19.0% |
+
+**The tie at lambda=1e6 is a trap.** Read that row alone and `openvla_ctx8` exactly matches state
+(0.0822 vs 0.0822, p=0.995). It matches only because state is past its own optimum there: state's
+plasticity, the mean error on each task the moment it finished training, degrades from 0.0471 at
+its best lambda to 0.0676 at 1e6, while `openvla_ctx8` gives up much less. Comparing two arms at
+a single shared lambda where one is over-regularised manufactures parity. This is the same shape
+of error as the retracted forgetting-rate claim -- a number that looks like a win because the
+comparison is not matched -- so the tuned-per-arm row above is the one to quote.
+
+Forgetting keeps falling monotonically in lambda for every arm while final error turns around,
+which is the ordinary stability-plasticity trade-off and the reason absolute forgetting alone is
+not a sufficient metric here.
+
+The Fisher is estimated from batch-level squared gradients rather than per-sample ones, which
+is the cheap standard approximation; gradients partly cancel within a batch, so the estimate
+is coarser than a per-sample Fisher and the useful lambda range is correspondingly shifted.
+It is the same estimator for every arm, so the comparison holds.
+
+Lambda is chosen post hoc on the same six orderings the significance tests run over, so those
+p-values are optimistically biased and uncorrected for selection across the grid. They support
+`the tuned arms differ`, not `this lambda is the right one`. The headline does not lean on
+them: the gap is significant at every lambda in the sweep except the single crossover point.
+
+Aggregate with `ewc_table.py`, which reads the per-lambda JSONs and prints these tables.
 
 Run with `continual_probe.py --n-orderings 6 --n-seeds 3` (add `--pca-dim 21` for the control).
 Both runs are in the `video-wam` W&B project with per-step retention curves, a summary table,

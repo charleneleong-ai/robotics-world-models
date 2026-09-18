@@ -22,6 +22,7 @@ p-values are paired across orderings and uncorrected across arms.
 from __future__ import annotations
 
 import json
+import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -177,6 +178,17 @@ class SequenceResult:
         return float(self.just_after[0])
 
     @property
+    def plasticity(self) -> float:
+        """Mean error on each task the moment it finished training -- lower is more plastic.
+
+        This is a loss, so it runs opposite to its name. It is the guard against a regulariser
+        that wins by refusing to move: a head frozen after task 1 forgets nothing and scores
+        terribly here. Unlike `abs_forgetting` it includes the final task, which has been
+        trained but not yet had the chance to decay.
+        """
+        return float(self.just_after.mean())
+
+    @property
     def retention_curve(self) -> list[float]:
         """Mean error over the tasks seen so far, after each step."""
         return [float(self.errors[: s + 1, s].mean()) for s in range(len(self.errors))]
@@ -187,6 +199,62 @@ class TrainConfig:
     epochs: int = 20
     batch: int = 256
     lr: float = 1e-3
+    ewc_lambda: float = 0.0
+
+
+class ElasticPenalty:
+    """Diagonal-Fisher EWC: one curvature estimate and one anchor per completed task.
+
+    The textbook formulation rather than the online variant -- penalty terms accumulate
+    per task instead of collapsing into a single running Fisher, which is what `plain EWC`
+    means in the rest of this repository. Inert at strength 0, including the graph node,
+    so the no-EWC arm reproduces the unregularised numbers exactly.
+    """
+
+    def __init__(self, strength: float) -> None:
+        self.strength = strength
+        self.terms: list[tuple[dict[str, Tensor], dict[str, Tensor]]] = []
+
+    @property
+    def active(self) -> bool:
+        return self.strength > 0
+
+    @property
+    def applies(self) -> bool:
+        """False until a task has been consolidated, so the loss expression stays untouched."""
+        return bool(self.terms)
+
+    def observe(self, net: ActionHead, x: Tensor, y: Tensor, batch: int) -> None:
+        """Record where the parameters landed on the task just finished, and how much each matters.
+
+        The batched empirical Fisher: the squared gradient of each minibatch-mean loss, not the
+        mean of per-sample squared gradients. That is the usual EWC implementation but it shrinks
+        the estimate by roughly the batch size, which is why the useful strengths here are 1e4 to
+        1e8. Strengths are not portable across `batch`, `epochs`, or action dimensionality, so
+        `batch` must stay tied to the training batch size.
+        """
+        if not self.active:
+            return
+        fisher = {n: torch.zeros_like(p) for n, p in net.named_parameters()}
+        net.eval()
+        for i in range(0, len(x), batch):
+            net.zero_grad()
+            F.mse_loss(net(x[i : i + batch]), y[i : i + batch]).backward()
+            for n, param in net.named_parameters():
+                if param.grad is not None:
+                    fisher[n] += param.grad.detach() ** 2
+        for n in fisher:
+            fisher[n] /= max(1, math.ceil(len(x) / batch))
+        self.terms.append((fisher, {n: p.detach().clone() for n, p in net.named_parameters()}))
+        net.zero_grad()
+
+    def __call__(self, net: ActionHead) -> Tensor:
+        total = torch.zeros((), device=DEVICE)
+        params = dict(net.named_parameters())
+        for fisher, anchor in self.terms:
+            for n, param in params.items():
+                total = total + (fisher[n] * (param - anchor[n]) ** 2).sum()
+        return 0.5 * self.strength * total
 
 
 class SequenceRunner:
@@ -208,9 +276,12 @@ class SequenceRunner:
         net = ActionHead(self.store.dim(self.rep), self.store.tasks[0].action_dim).to(DEVICE)
         opt = torch.optim.Adam(net.parameters(), lr=self.cfg.lr)
 
+        penalty = ElasticPenalty(self.cfg.ewc_lambda)
         errors = np.zeros((len(order), len(order)))
         for step, task in enumerate(order):
-            self.fit(net, opt, *self.splits[task][:2])
+            xt, yt = self.splits[task][:2]
+            self.fit(net, opt, xt, yt, penalty)
+            penalty.observe(net, xt, yt, self.cfg.batch)
             net.eval()
             with torch.no_grad():
                 for pos in range(step + 1):
@@ -218,13 +289,16 @@ class SequenceRunner:
                     errors[pos, step] = float(F.mse_loss(net(xe), ye))
         return SequenceResult(errors)
 
-    def fit(self, net: ActionHead, opt: torch.optim.Optimizer, x: Tensor, y: Tensor) -> None:
+    def fit(self, net: ActionHead, opt: torch.optim.Optimizer, x: Tensor, y: Tensor,
+            penalty: ElasticPenalty) -> None:
         net.train()
         for _ in range(self.cfg.epochs):
             perm = torch.randperm(len(x), device=DEVICE)
             for i in range(0, len(perm), self.cfg.batch):
                 j = perm[i : i + self.cfg.batch]
                 loss = F.mse_loss(net(x[j]), y[j])
+                if penalty.applies:
+                    loss = loss + penalty(net)
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
@@ -238,6 +312,7 @@ class ArmSummary:
     final: np.ndarray
     forgetting: np.ndarray
     first_task: np.ndarray
+    plasticity: np.ndarray
     curve: np.ndarray
 
     @staticmethod
@@ -252,7 +327,7 @@ class ArmSummary:
 
     def row(self, reference: ArmSummary) -> dict[str, float]:
         return {"final_error": float(self.final.mean()), "abs_forgetting": float(self.forgetting.mean()),
-                "first_task_error": float(self.first_task.mean()),
+                "first_task_error": float(self.first_task.mean()), "plasticity": float(self.plasticity.mean()),
                 "final_vs_ref_pct": 100 * (self.final.mean() / reference.final.mean() - 1),
                 "p_final": self.against(reference.final, self.final),
                 "forget_vs_ref": float(self.forgetting.mean() - reference.forgetting.mean()),
@@ -275,7 +350,7 @@ class ContinualExperiment:
             return np.array([[getattr(r, attr) for r in row] for row in grid])
 
         return ArmSummary(rep, gather("final_error"), gather("abs_forgetting"),
-                          gather("first_task_error"), gather("retention_curve"))
+                          gather("first_task_error"), gather("plasticity"), gather("retention_curve"))
 
     def run(self) -> list[ArmSummary]:
         arms = []
@@ -289,7 +364,7 @@ class ContinualExperiment:
 class Reporter:
     """Prints the paired table, streams curves to W&B, and writes the results JSON."""
 
-    COLUMNS = ["rep", "final_error", "abs_forgetting", "first_task_error",
+    COLUMNS = ["rep", "final_error", "abs_forgetting", "plasticity", "first_task_error",
                "final_vs_ref_pct", "p_final", "forget_vs_ref", "p_forget"]
 
     def __init__(self, arms: list[ArmSummary], out: Path) -> None:
@@ -304,8 +379,8 @@ class Reporter:
             typer.echo(f"== {r['rep']:<22} final {r['final_error']:.4f} "
                        f"({r['final_vs_ref_pct']:+6.1f}% vs {self.reference.rep}, p={r['p_final']:.3f})   "
                        f"abs-forget {r['abs_forgetting']:+.4f} (p={r['p_forget']:.3f})   "
-                       f"first-task {r['first_task_error']:.4f}")
-            for k in ("final_error", "abs_forgetting", "first_task_error"):
+                       f"plasticity-err {r['plasticity']:.4f}")
+            for k in ("final_error", "abs_forgetting", "first_task_error", "plasticity"):
                 wandb.summary[f"{k}/{r['rep']}"] = r[k]
         wandb.log({"continual/summary": table})
         self.log_curves()
@@ -322,7 +397,8 @@ class Reporter:
     def write_json(self) -> None:
         payload = {"summary": self.summary,
                    "per_ordering": {a.rep: {"final": ArmSummary.paired(a.final).tolist(),
-                                            "abs_forgetting": ArmSummary.paired(a.forgetting).tolist()}
+                                            "abs_forgetting": ArmSummary.paired(a.forgetting).tolist(),
+                                            "plasticity": ArmSummary.paired(a.plasticity).tolist()}
                                     for a in self.arms}}
         self.out.write_text(json.dumps(payload, indent=2))
         artifact = wandb.Artifact("continual-forgetting", type="results")
@@ -331,14 +407,18 @@ class Reporter:
 
 
 def main(n_orderings: int = 6, n_seeds: int = 3, n_tasks: int = 10, eval_demos: int = 2,
-         epochs: int = 20, pca_dim: int = 0, out: Path = ROOT / "continual_results.json") -> None:
+         epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0,
+         out: Path = ROOT / "continual_results.json") -> None:
     store = FeatureStore(ROOT, n_tasks, eval_demos, pca_dim)
     tag = f"-pca{pca_dim}" if pca_dim else ""
+    tag += f"-ewc{ewc_lambda:g}" if ewc_lambda else ""
     run = wandb.init(project="video-wam", job_type="continual", name=f"continual-forgetting{tag}",
                      config={"reps": store.representations, "n_orderings": n_orderings, "n_seeds": n_seeds,
                              "n_tasks": n_tasks, "eval_demos": eval_demos, "epochs": epochs,
-                             "pca_dim": pca_dim, "metric": "absolute", "paired_on": "ordering"})
-    arms = ContinualExperiment(store, n_orderings, n_seeds, TrainConfig(epochs=epochs)).run()
+                             "pca_dim": pca_dim, "ewc_lambda": ewc_lambda,
+                             "metric": "absolute", "paired_on": "ordering"})
+    cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda)
+    arms = ContinualExperiment(store, n_orderings, n_seeds, cfg).run()
     typer.echo("")
     Reporter(arms, out).emit()
     typer.echo(f"\nW&B run: {run.url}")
