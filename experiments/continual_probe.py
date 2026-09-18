@@ -200,6 +200,52 @@ class TrainConfig:
     batch: int = 256
     lr: float = 1e-3
     ewc_lambda: float = 0.0
+    replay_size: int = 0
+
+
+class ReplayBuffer:
+    """Experience replay from a fixed-size memory balanced across the tasks seen so far.
+
+    Each task contributes an equal quota, and every task keeps one fixed random permutation
+    of its frames, so shrinking the quota as tasks arrive evicts rather than resamples and
+    the memory's contents stay nested. That is the greedy balanced sampler GDumb uses, fed
+    here to ordinary replay: the new task's loss plus an equally weighted loss on a batch
+    drawn from memory.
+
+    What the budget bounds is the training-eligible sample -- at most `capacity` frames ever
+    reach a gradient. It is counted in frames, not bytes: a frame of `openvla_ctx8` is 4352
+    floats and a frame of state is 21, so the wide representations get a far larger memory in
+    bytes at the same setting. Frames is the defensible unit, since a real system would store
+    the image and re-encode it, but the byte asymmetry is worth knowing when reading the table.
+    """
+
+    def __init__(self, capacity: int) -> None:
+        self.capacity = capacity
+        self.entries: list[tuple[Tensor, Tensor]] = []
+        self.x: Tensor | None = None
+        self.y: Tensor | None = None
+
+    @property
+    def applies(self) -> bool:
+        return self.x is not None
+
+    def add(self, x: Tensor, y: Tensor) -> None:
+        """Take this task into memory and re-balance, evicting from the tasks already held."""
+        if self.capacity <= 0:
+            return
+        if self.capacity <= len(self.entries):
+            raise ValueError(f"capacity {self.capacity} cannot hold one frame per task "
+                             f"once {len(self.entries) + 1} tasks have been seen")
+        keep = torch.randperm(len(x), device=DEVICE)[: self.capacity]
+        self.entries.append((x[keep], y[keep]))
+        quota = self.capacity // len(self.entries)
+        self.x = torch.cat([ex[:quota] for ex, _ in self.entries])
+        self.y = torch.cat([ey[:quota] for _, ey in self.entries])
+
+    def batch(self, size: int) -> tuple[Tensor, Tensor]:
+        """Sampled with replacement; the draw shrinks when memory holds fewer frames than asked."""
+        idx = torch.randint(0, len(self.x), (min(size, len(self.x)),), device=DEVICE)
+        return self.x[idx], self.y[idx]
 
 
 class ElasticPenalty:
@@ -277,11 +323,13 @@ class SequenceRunner:
         opt = torch.optim.Adam(net.parameters(), lr=self.cfg.lr)
 
         penalty = ElasticPenalty(self.cfg.ewc_lambda)
+        replay = ReplayBuffer(self.cfg.replay_size)
         errors = np.zeros((len(order), len(order)))
         for step, task in enumerate(order):
             xt, yt = self.splits[task][:2]
-            self.fit(net, opt, xt, yt, penalty)
+            self.fit(net, opt, xt, yt, penalty, replay)
             penalty.observe(net, xt, yt, self.cfg.batch)
+            replay.add(xt, yt)
             net.eval()
             with torch.no_grad():
                 for pos in range(step + 1):
@@ -290,13 +338,16 @@ class SequenceRunner:
         return SequenceResult(errors)
 
     def fit(self, net: ActionHead, opt: torch.optim.Optimizer, x: Tensor, y: Tensor,
-            penalty: ElasticPenalty) -> None:
+            penalty: ElasticPenalty, replay: ReplayBuffer) -> None:
         net.train()
         for _ in range(self.cfg.epochs):
             perm = torch.randperm(len(x), device=DEVICE)
             for i in range(0, len(perm), self.cfg.batch):
                 j = perm[i : i + self.cfg.batch]
                 loss = F.mse_loss(net(x[j]), y[j])
+                if replay.applies:
+                    rx, ry = replay.batch(self.cfg.batch)
+                    loss = loss + F.mse_loss(net(rx), ry)
                 if penalty.applies:
                     loss = loss + penalty(net)
                 opt.zero_grad()
@@ -407,17 +458,18 @@ class Reporter:
 
 
 def main(n_orderings: int = 6, n_seeds: int = 3, n_tasks: int = 10, eval_demos: int = 2,
-         epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0,
+         epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0, replay_size: int = 0,
          out: Path = ROOT / "continual_results.json") -> None:
     store = FeatureStore(ROOT, n_tasks, eval_demos, pca_dim)
     tag = f"-pca{pca_dim}" if pca_dim else ""
     tag += f"-ewc{ewc_lambda:g}" if ewc_lambda else ""
+    tag += f"-er{replay_size}" if replay_size else ""
     run = wandb.init(project="video-wam", job_type="continual", name=f"continual-forgetting{tag}",
                      config={"reps": store.representations, "n_orderings": n_orderings, "n_seeds": n_seeds,
                              "n_tasks": n_tasks, "eval_demos": eval_demos, "epochs": epochs,
-                             "pca_dim": pca_dim, "ewc_lambda": ewc_lambda,
+                             "pca_dim": pca_dim, "ewc_lambda": ewc_lambda, "replay_size": replay_size,
                              "metric": "absolute", "paired_on": "ordering"})
-    cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda)
+    cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda, replay_size=replay_size)
     arms = ContinualExperiment(store, n_orderings, n_seeds, cfg).run()
     typer.echo("")
     Reporter(arms, out).emit()

@@ -119,7 +119,12 @@ for L in 0 10000 100000 1000000 10000000 100000000; do             # EWC lambda 
   $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --ewc-lambda $L \
      --out ~/wan_latents/continual_ewc_$L.json
 done
-$V experiments/ewc_table.py
+$V experiments/sweep_table.py --pattern 'continual_ewc_*.json'
+for M in 0 20 100 500 2000; do                                     # replay memory sweep
+  $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --replay-size $M \
+     --out ~/wan_latents/continual_er_$M.json
+done
+$V experiments/sweep_table.py --pattern 'continual_er_*.json' --axis memory
 ```
 
 Caches land in `~/wan_latents/` (32-113 MB per representation, derived, not tracked). All
@@ -240,7 +245,59 @@ p-values are optimistically biased and uncorrected for selection across the grid
 `the tuned arms differ`, not `this lambda is the right one`. The headline does not lean on
 them: the gap is significant at every lambda in the sweep except the single crossover point.
 
-Aggregate with `ewc_table.py`, which reads the per-lambda JSONs and prints these tables.
+
+
+### Does replay close the gap?
+
+Most of it, and the part it closes is the part this branch was asking about. Replay removes the
+forgetting difference entirely; what survives is the single-task fit difference, which is not a
+continual-learning problem at all.
+
+Memory balanced across tasks seen so far, each task keeping a fixed permutation so a shrinking
+quota evicts rather than resamples, with the new task's loss and an equally weighted loss on a
+batch drawn from memory. Applied to every arm including proprioception, same as the EWC sweep.
+Budget is counted in frames: 2000 frames is about a fifth of all training data.
+
+| memory | state | siglip2 | siglip2_ctx8 | openvla | openvla_ctx8 |
+|---|---|---|---|---|---|
+| 0 | 0.0910 | 0.1793 | 0.1375 | 0.1529 | 0.1129 |
+| 20 | 0.0689 | 0.1467 | 0.1091 | 0.1244 | 0.0868 |
+| 100 | 0.0579 | 0.1177 | 0.0811 | 0.0992 | 0.0635 |
+| 500 | 0.0454 | 0.0950 | 0.0600 | 0.0818 | 0.0496 |
+| 2000 | **0.0402** | **0.0860** | **0.0506** | **0.0754** | **0.0445** |
+
+**A hundred stored frames beat the best-tuned EWC on every arm**, by 10-23% with 6 of 6 orderings
+agreeing: state -16.1% (p=0.0022), `siglip2_ctx8` -18.1% (p<0.001), `openvla_ctx8` -22.7%
+(p=0.0006). That is about 1% of the training data against a method with a tuned hyperparameter,
+and it reproduces on these representations what the earlier suites already found -- a small memory
+with random replay beats the reliability signals.
+
+**Replay costs no plasticity.** The mean error on each task the moment it finished training is flat
+across the whole memory sweep, within 0.004 of its unregularised value for every arm. EWC bought
+its retention by giving up plasticity, degrading state from 0.0471 to 0.0676 at the setting where
+it appeared to tie. Replay buys retention with storage instead, and storage turns out to be much
+the better currency here.
+
+**The forgetting gap closes; the fit gap does not.** At memory 2000 the residual gap from
+`openvla_ctx8` to state is +0.0042, and it decomposes almost entirely into the single-task term:
+
+| component | gap | p |
+|---|---|---|
+| final error | +0.0042 | 0.0012 |
+| plasticity (single-task fit) | +0.0037 | 0.0039 |
+| absolute forgetting | +0.0007 | 0.379 |
+
+From memory 500 upward the forgetting difference between the best representation and
+proprioception is no longer distinguishable (p=0.42 at 500, p=0.38 at 2000, and the orderings
+split rather than lining up). The representations are not worse at retaining; they are worse at
+fitting, and that difference was already visible in the single-task probe. Given enough replay,
+the sequential setting stops adding a penalty of its own.
+
+At matched tuning the end-to-end gap narrows from +24.0% to +10.6% (0.0445 vs 0.0402, p=0.0012).
+The same post-hoc-selection caveat as the EWC sweep applies, and here the selection is trivial
+since every arm's best memory is the largest one swept.
+
+Aggregate either sweep with `sweep_table.py`, which reads the swept value out of each filename.
 
 Run with `continual_probe.py --n-orderings 6 --n-seeds 3` (add `--pca-dim 21` for the control).
 Both runs are in the `video-wam` W&B project with per-step retention curves, a summary table,
