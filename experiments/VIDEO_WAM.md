@@ -125,6 +125,13 @@ for M in 0 20 100 500 2000; do                                     # replay memo
      --out ~/wan_latents/continual_er_$M.json
 done
 $V experiments/sweep_table.py --pattern 'continual_er_*.json' --axis memory
+for M in 100 2000; do                                              # EWC on top of replay
+  for L in 10000 100000 1000000; do
+    $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --replay-size $M --ewc-lambda $L \
+       --out ~/wan_latents/continual_er${M}_ewc_$L.json
+  done
+done
+$V experiments/combo_table.py
 ```
 
 Caches land in `~/wan_latents/` (32-113 MB per representation, derived, not tracked). All
@@ -298,6 +305,58 @@ The same post-hoc-selection caveat as the EWC sweep applies, and here the select
 since every arm's best memory is the largest one swept.
 
 Aggregate either sweep with `sweep_table.py`, which reads the swept value out of each filename.
+
+### EWC on top of replay
+
+The two are substitutes, not complements. At a memory that works, adding EWC only makes things
+worse, and where EWC does help, buying more memory helps more.
+
+EWC strength swept at a scarce memory (100 frames) and at the best one (2000), each cell tested
+against the same memory with no EWC, paired on the shared orderings.
+
+Final error at memory 2000, where replay is already doing its job:
+
+| representation | replay alone | + EWC 1e4 | + EWC 1e5 | + EWC 1e6 |
+|---|---|---|---|---|
+| state | **0.0402** | 0.0452 (+12.3%) | 0.0549 (+36.4%) | 0.0689 (+71.3%) |
+| siglip2_ctx8 | **0.0506** | 0.0513 (+1.4%) | 0.0586 (+15.8%) | 0.0805 (+59.0%) |
+| openvla_ctx8 | **0.0445** | 0.0461 (+3.7%) | 0.0467 (+5.0%) | 0.0563 (+26.8%) |
+
+Every arm is worse at every strength, and where it is significant no ordering favours the
+addition. At memory 100 the picture inverts for the weaker arms -- `siglip2_ctx8` -10.3%
+(p<0.001, 6/6), `openvla` -10.0% (p<0.001, 6/6), state -6.2% (p=0.040, 5/6) -- but the best
+representation still gains nothing (`openvla_ctx8` -2.1%, p=0.22).
+
+**The mechanism is visible in the two component metrics.** EWC reduces forgetting monotonically
+in its strength, for every arm, at both memory sizes: at memory 100 it takes state's absolute
+forgetting from 0.0193 down to 0.0026. It also costs plasticity monotonically, taking state's
+from 0.0406 to 0.0693 over the same range. When memory is scarce, forgetting is still the
+binding constraint and the trade can pay. When memory is ample, forgetting is already near zero
+-- 0.0020 for state at memory 2000 -- so there is nothing left to buy and all the penalty does
+is spend plasticity.
+
+**More memory beats any amount of EWC.** Four hundred extra frames beat the best combination on
+a small memory, 6 of 6 orderings, for both the reference and the best representation:
+
+| | memory 100 + EWC | memory 500 alone | |
+|---|---|---|---|
+| state | 0.0543 | **0.0454** | -16.4%, p<0.001, 6/6 |
+| openvla_ctx8 | 0.0644 | **0.0496** | -23.0%, p=0.0001, 6/6 |
+
+So the three interventions order cleanly on this benchmark, and the ordering is the same one the
+earlier suites in this repository reported: replay first by a wide margin, EWC a distant second
+that only matters when replay is starved, and the two together never better than replay alone
+with the memory it wants.
+
+The sweep fixes memory and varies strength rather than covering the full grid, so an interaction
+at some untested pair is not ruled out. The two memory sizes bracket the regime of interest, and
+the trend within each is monotonic and consistent across all five arms. The grid is 90 uncorrected
+two-sided tests over six orderings, so a handful below 0.05 are expected under the null; what
+carries the conclusion is the monotone trend and the unanimous ordering counts, not any one cell.
+Percentage changes in forgetting at memory 2000 are quoted as absolutes above because the
+baselines there are near zero and ratios on them are meaningless.
+
+Aggregate with `combo_table.py`.
 
 Run with `continual_probe.py --n-orderings 6 --n-seeds 3` (add `--pca-dim 21` for the control).
 Both runs are in the `video-wam` W&B project with per-step retention curves, a summary table,
