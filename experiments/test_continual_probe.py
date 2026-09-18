@@ -76,6 +76,60 @@ class TestElasticPenalty:
             assert torch.allclose(fisher[name], value, atol=1e-8)
 
 
+class TestOnlineElasticPenalty:
+    """The variant that keeps one running Fisher instead of one per task."""
+
+    GAMMA = 0.5
+
+    def penalty(self, net: ActionHead, batch: Frames, n_tasks: int) -> ElasticPenalty:
+        penalty = ElasticPenalty(STRENGTH, online=True, gamma=self.GAMMA)
+        for _ in range(n_tasks):
+            penalty.observe(net, *batch, batch=len(batch[0]))
+        return penalty
+
+    @pytest.mark.parametrize("n_tasks", [1, 2, 5])
+    def test_storage_does_not_grow_with_the_task_count(self, net: ActionHead, batch: Frames,
+                                                       n_tasks: int) -> None:
+        """The whole reason to prefer online: two copies of the parameters, however many tasks."""
+        assert len(self.penalty(net, batch, n_tasks).terms) == 1
+
+    @pytest.mark.parametrize("n_tasks", [1, 2, 3])
+    def test_running_fisher_is_the_decayed_sum(self, net: ActionHead, batch: Frames, n_tasks: int) -> None:
+        """Three tasks are needed to pin which side decays.
+
+        Decaying the history gives 1 + g + g**2; decaying the new estimate instead gives 1 + 2g.
+        Those agree at two tasks and separate at three.
+        """
+        once, _ = self.penalty(net, batch, 1).terms[0]
+        running, _ = self.penalty(net, batch, n_tasks).terms[0]
+        expected = sum(self.GAMMA**k for k in range(n_tasks))
+        for name, value in once.items():
+            assert torch.allclose(running[name], expected * value, atol=1e-8)
+
+    def test_anchor_follows_the_latest_parameters(self, net: ActionHead, batch: Frames) -> None:
+        penalty = self.penalty(net, batch, 1)
+        with torch.no_grad():
+            for param in net.parameters():
+                param.add_(0.1)
+        penalty.observe(net, *batch, batch=len(batch[0]))
+        _, anchor = penalty.terms[0]
+        assert all(torch.equal(anchor[n], p.detach()) for n, p in net.named_parameters())
+
+    def test_earlier_curvature_survives_re_anchoring(self, net: ActionHead, batch: Frames) -> None:
+        """The difference from simply keeping the last task, which no other test would catch."""
+        accumulated = self.penalty(net, batch, 1)
+        latest_only = ElasticPenalty(STRENGTH, online=True, gamma=self.GAMMA)
+        with torch.no_grad():
+            for param in net.parameters():
+                param.add_(0.1)
+        for penalty in (accumulated, latest_only):
+            penalty.observe(net, *batch, batch=len(batch[0]))
+        with torch.no_grad():
+            for param in net.parameters():
+                param.add_(0.1)
+        assert accumulated(net).item() > latest_only(net).item()
+
+
 class TestSequenceResult:
     """Metrics read off the [position, step] error matrix."""
 

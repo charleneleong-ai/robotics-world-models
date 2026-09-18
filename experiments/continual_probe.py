@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
@@ -200,6 +200,8 @@ class TrainConfig:
     batch: int = 256
     lr: float = 1e-3
     ewc_lambda: float = 0.0
+    ewc_online: bool = False
+    ewc_gamma: float = 1.0
     replay_size: int = 0
 
 
@@ -249,16 +251,21 @@ class ReplayBuffer:
 
 
 class ElasticPenalty:
-    """Diagonal-Fisher EWC: one curvature estimate and one anchor per completed task.
+    """Diagonal-Fisher EWC, in either the textbook or the online form.
 
-    The textbook formulation rather than the online variant -- penalty terms accumulate
-    per task instead of collapsing into a single running Fisher, which is what `plain EWC`
-    means in the rest of this repository. Inert at strength 0, including the graph node,
-    so the no-EWC arm reproduces the unregularised numbers exactly.
+    Textbook keeps a curvature estimate and an anchor per completed task, so what it stores
+    grows with the task count. Online collapses them into one running Fisher, decayed by
+    `gamma` before each new task is folded in, anchored at the most recent parameters; what
+    it stores is two copies of the parameter vector no matter how many tasks arrive. That
+    difference is the whole reason to prefer online, since the textbook form here stores more
+    than the replay buffer that beats it.
+
+    Inert at strength 0, including the graph node, so the no-EWC arm reproduces the
+    unregularised numbers exactly.
     """
 
-    def __init__(self, strength: float) -> None:
-        self.strength = strength
+    def __init__(self, strength: float, online: bool = False, gamma: float = 1.0) -> None:
+        self.strength, self.online, self.gamma = strength, online, gamma
         self.terms: list[tuple[dict[str, Tensor], dict[str, Tensor]]] = []
 
     @property
@@ -291,8 +298,23 @@ class ElasticPenalty:
                     fisher[n] += param.grad.detach() ** 2
         for n in fisher:
             fisher[n] /= max(1, math.ceil(len(x) / batch))
-        self.terms.append((fisher, {n: p.detach().clone() for n, p in net.named_parameters()}))
+        anchor = {n: p.detach().clone() for n, p in net.named_parameters()}
+        self.remember(fisher, anchor)
         net.zero_grad()
+
+    def remember(self, fisher: dict[str, Tensor], anchor: dict[str, Tensor]) -> None:
+        """Keep this task's curvature, either beside the earlier ones or folded into them.
+
+        Decay applies to the accumulated history, never to the new estimate: the new Fisher was
+        measured at the new anchor, so it is the only part that is not already stale.
+        """
+        if not self.online:
+            self.terms.append((fisher, anchor))
+            return
+        if self.terms:
+            running, _ = self.terms[0]
+            fisher = {n: self.gamma * running[n] + fisher[n] for n in fisher}
+        self.terms = [(fisher, anchor)]
 
     def __call__(self, net: ActionHead) -> Tensor:
         total = torch.zeros((), device=DEVICE)
@@ -322,7 +344,7 @@ class SequenceRunner:
         net = ActionHead(self.store.dim(self.rep), self.store.tasks[0].action_dim).to(DEVICE)
         opt = torch.optim.Adam(net.parameters(), lr=self.cfg.lr)
 
-        penalty = ElasticPenalty(self.cfg.ewc_lambda)
+        penalty = ElasticPenalty(self.cfg.ewc_lambda, self.cfg.ewc_online, self.cfg.ewc_gamma)
         replay = ReplayBuffer(self.cfg.replay_size)
         errors = np.zeros((len(order), len(order)))
         for step, task in enumerate(order):
@@ -457,19 +479,35 @@ class Reporter:
         wandb.log_artifact(artifact)
 
 
+def run_tag(cfg: TrainConfig, pca_dim: int) -> str:
+    """A run name that names every intervention actually in force, and none that is not."""
+    parts = ["continual-forgetting"]
+    if pca_dim:
+        parts.append(f"pca{pca_dim}")
+    if cfg.ewc_lambda:
+        parts.append(f"ewc{'online' if cfg.ewc_online else ''}{cfg.ewc_lambda:g}")
+        if cfg.ewc_online and cfg.ewc_gamma != 1.0:
+            parts.append(f"g{cfg.ewc_gamma:g}")
+    if cfg.replay_size:
+        parts.append(f"er{cfg.replay_size}")
+    return "-".join(parts)
+
+
 def main(n_orderings: int = 6, n_seeds: int = 3, n_tasks: int = 10, eval_demos: int = 2,
-         epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0, replay_size: int = 0,
+         epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0, ewc_online: bool = False,
+         ewc_gamma: float = 1.0, replay_size: int = 0,
          out: Path = ROOT / "continual_results.json") -> None:
+    if not 0 < ewc_gamma <= 1:
+        raise typer.BadParameter("ewc-gamma must be in (0, 1]; above 1 diverges, at 0 nothing is kept")
+    if (ewc_online or ewc_gamma != 1.0) and not ewc_lambda:
+        raise typer.BadParameter("ewc-online and ewc-gamma do nothing without a non-zero ewc-lambda")
     store = FeatureStore(ROOT, n_tasks, eval_demos, pca_dim)
-    tag = f"-pca{pca_dim}" if pca_dim else ""
-    tag += f"-ewc{ewc_lambda:g}" if ewc_lambda else ""
-    tag += f"-er{replay_size}" if replay_size else ""
-    run = wandb.init(project="video-wam", job_type="continual", name=f"continual-forgetting{tag}",
+    cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda, ewc_online=ewc_online,
+                      ewc_gamma=ewc_gamma, replay_size=replay_size)
+    run = wandb.init(project="video-wam", job_type="continual", name=run_tag(cfg, pca_dim),
                      config={"reps": store.representations, "n_orderings": n_orderings, "n_seeds": n_seeds,
-                             "n_tasks": n_tasks, "eval_demos": eval_demos, "epochs": epochs,
-                             "pca_dim": pca_dim, "ewc_lambda": ewc_lambda, "replay_size": replay_size,
-                             "metric": "absolute", "paired_on": "ordering"})
-    cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda, replay_size=replay_size)
+                             "n_tasks": n_tasks, "eval_demos": eval_demos, "pca_dim": pca_dim,
+                             "metric": "absolute", "paired_on": "ordering", **asdict(cfg)})
     arms = ContinualExperiment(store, n_orderings, n_seeds, cfg).run()
     typer.echo("")
     Reporter(arms, out).emit()
