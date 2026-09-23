@@ -335,6 +335,16 @@ class ScaledDiffusionWAM(nn.Module):
 
         return x
 
+    @torch.no_grad()
+    def predict_next_state(
+        self,
+        state: torch.Tensor,
+        action: torch.Tensor,
+        num_steps: int | None = None,
+    ) -> torch.Tensor:
+        """Predict next state given current state and action (world model use)."""
+        return self.denoise_state(state, num_steps=num_steps or 100)
+
     def training_loss(
         self,
         obs: torch.Tensor,
