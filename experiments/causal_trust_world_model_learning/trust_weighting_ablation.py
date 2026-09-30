@@ -26,7 +26,7 @@ import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from continual_learning import WorldModelTrustCL
+from .continual_learning import WorldModelTrustCL
 from rssm_world_model import WorldModel
 from maniskill_benchmark import SimpleMLP, ManiSkillBenchmark
 

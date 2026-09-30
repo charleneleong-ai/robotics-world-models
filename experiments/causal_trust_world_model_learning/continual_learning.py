@@ -7,6 +7,41 @@ Integrates RSSM world model with CL strategies:
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
+
+
+@dataclass
+class ContinualLearningConfig:
+    """Configuration for continual learning."""
+    # Trust scoring
+    use_world_model_trust: bool = True
+    trust_threshold: float = 0.5
+    trust_weight: float = 1.0
+    
+    # EWC
+    ewc_lambda: float = 1000.0
+    ewc_gamma: float = 0.95
+    
+    # LwF
+    lwf_lambda: float = 1.0
+    lwf_temperature: float = 2.0
+    
+    # Replay
+    replay_buffer_size: int = 10000
+    replay_batch_size: int = 32
+    
+    # PackNet
+    packnet_task_threshold: float = 0.5
+    
+    # LwF
+    lwf_temperature: float = 2.0
+    
+    # Curious Replay
+    curious_replay_k: int = 50
+    curious_replay_temp: float = 1.0
+
+# Add after imports
+
 
 import torch
 import torch.nn as nn
@@ -16,8 +51,8 @@ from collections import deque
 import copy
 import numpy as np
 
-from rssm_world_model import WorldModel
-from trust_scoring import TrustScorer, TrustWeightedConsolidation
+from .rssm_world_model import WorldModel
+from .trust_scoring import TrustScorer, TrustWeightedConsolidation
 
 
 class ContinualLearner:

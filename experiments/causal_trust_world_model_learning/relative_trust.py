@@ -29,8 +29,8 @@ from scipy import stats
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from trust_scoring import TrustScorer
-from continual_learning import WorldModelTrustCL
+from .trust_scoring import TrustScorer
+from .continual_learning import WorldModelTrustCL
 import trust_weighting_ablation as abl
 import trust_rejection_real as rej
 
