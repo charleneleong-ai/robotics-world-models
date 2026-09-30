@@ -42,7 +42,7 @@ import torch.nn as nn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from maniskill_benchmark import ManiSkillBenchmark
-from trust_scoring import TrustScorer
+from .trust_scoring import TrustScorer
 
 RESULTS_DIR = Path(__file__).parent / "results_failure_recovery_real"
 RESULTS_DIR.mkdir(exist_ok=True)

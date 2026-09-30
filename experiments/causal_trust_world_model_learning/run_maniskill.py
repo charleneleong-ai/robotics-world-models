@@ -17,7 +17,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rssm_world_model import WorldModel
-from continual_learning import (
+from .continual_learning import (
     FineTuningCL,
     AccuracyTrustCL,
     WorldModelTrustCL,

@@ -24,7 +24,7 @@ import torch.nn.functional as F
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rssm_world_model import WorldModel
-from trust_scoring import TrustScorer
+from .trust_scoring import TrustScorer
 from maniskill_benchmark import SimpleMLP, ManiSkillBenchmark
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
