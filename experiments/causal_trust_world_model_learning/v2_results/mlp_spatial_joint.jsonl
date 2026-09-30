@@ -1,0 +1,10 @@
+{"backbone": "mlp", "suite": "spatial", "arm": "online_ewc", "seed": 2, "final_err": 0.001216222275979817, "trust_spread": 0.20152216595654585}
+{"backbone": "mlp", "suite": "spatial", "arm": "trust_sample", "seed": 2, "final_err": 0.0011023387749446556, "trust_spread": 0.19939056737918634}
+{"backbone": "mlp", "suite": "spatial", "arm": "online_ewc", "seed": 3, "final_err": 0.001128030993277207, "trust_spread": 0.20167090576598232}
+{"backbone": "mlp", "suite": "spatial", "arm": "trust_sample", "seed": 3, "final_err": 0.0010572887462330983, "trust_spread": 0.19911760500575207}
+{"backbone": "mlp", "suite": "spatial", "arm": "online_ewc", "seed": 4, "final_err": 0.001018965640105307, "trust_spread": 0.2015911063962445}
+{"backbone": "mlp", "suite": "spatial", "arm": "trust_sample", "seed": 4, "final_err": 0.0009894149116007611, "trust_spread": 0.2000484556925236}
+{"backbone": "mlp", "suite": "spatial", "arm": "online_ewc", "seed": 5, "final_err": 0.0011915949638932944, "trust_spread": 0.20161066356438154}
+{"backbone": "mlp", "suite": "spatial", "arm": "trust_sample", "seed": 5, "final_err": 0.0010807448852574453, "trust_spread": 0.20040661539692356}
+{"backbone": "mlp", "suite": "spatial", "arm": "online_ewc", "seed": 6, "final_err": 0.0011866253102198244, "trust_spread": 0.20134026067141367}
+{"backbone": "mlp", "suite": "spatial", "arm": "trust_sample", "seed": 6, "final_err": 0.0011162464506924152, "trust_spread": 0.19880893740384858}
