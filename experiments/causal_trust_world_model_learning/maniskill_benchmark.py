@@ -395,7 +395,7 @@ def main():
     model_cls = lambda: SimpleMLP(obs_dim, hidden_dim=256, num_classes=num_classes).to(device)
 
     # Create methods
-    from continual_learning import (
+    from .continual_learning import (
         FineTuningCL,
         AccuracyTrustCL,
         WorldModelTrustCL,

@@ -25,7 +25,7 @@ from scipy import stats
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cl_baselines_full_rerun import EPOCHS_PER_TASK, NUM_TASKS, ManiSkillCLExperiment, SynapticIntelligenceCL  # noqa: F401
-from continual_learning import EWCCL, FineTuningCL
+from .continual_learning import EWCCL, FineTuningCL
 from maniskill_benchmark import ManiSkillBenchmark, SimpleMLP
 
 NUM_SEEDS = int(sys.argv[1]) if len(sys.argv) > 1 else 9

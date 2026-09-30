@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from rssm_world_model import RSSM
 from trust_metric_comparison import TrustMetricComparator
-from continual_learning import ExperienceReplay, EWC, PrioritizedReplay
+from .continual_learning import ExperienceReplay, EWC, PrioritizedReplay
 from improved_trust import ImprovedTrustScorer
 
 

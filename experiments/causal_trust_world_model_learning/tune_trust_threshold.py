@@ -20,7 +20,7 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cl_baselines_full_rerun import ManiSkillBenchmark, ManiSkillCLExperiment
-from continual_learning import WorldModelTrustCL
+from .continual_learning import WorldModelTrustCL
 from maniskill_benchmark import SimpleMLP
 from rssm_world_model import WorldModel
 

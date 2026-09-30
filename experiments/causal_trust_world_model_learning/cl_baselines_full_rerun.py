@@ -26,7 +26,7 @@ import torch.nn.functional as F
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from maniskill_benchmark import ManiSkillBenchmark, SimpleMLP
-from continual_learning import (
+from .continual_learning import (
     ContinualLearner,
     FineTuningCL,
     EWCCL,
