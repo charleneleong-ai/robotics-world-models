@@ -216,7 +216,7 @@ def apply_action_noise(
 
     # Apply torque noise to all action dimensions
     noise_scale = max(config.action.torque_noise, config.action.position_noise)
-    noise = torch.randn_like(action, generator=rng) * noise_scale
+    noise = torch.randn(action.shape, generator=rng, device=action.device, dtype=action.dtype) * noise_scale
     noisy += noise
 
     return noisy
