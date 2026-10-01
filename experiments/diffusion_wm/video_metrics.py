@@ -14,10 +14,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -91,21 +87,15 @@ def _frechet_distance(
     sigma2: torch.Tensor,
     eps: float = 1e-6,
 ) -> float:
-    """Compute Fréchet distance between two Gaussians."""
+    """Fréchet distance ||mu1 - mu2||^2 + Tr(S1 + S2 - 2 (S1 S2)^1/2) between two Gaussians.
+
+    Tr((S1 S2)^1/2) is computed as the trace of the PSD root of S1^1/2 S2 S1^1/2, which has the same eigenvalues.
+    """
     diff = mu1 - mu2
-
-    # Product might be almost singular — add small regularization
-    covmean = sigma1 @ sigma2
-    # Use eigendecomposition for numerical stability
-    eigenvalues = torch.linalg.eigvalsh(covmean)
-    # Clamp to avoid log of negative
-    eigenvalues = eigenvalues.clamp(min=eps)
-    log_det = eigenvalues.log().sum()
-
-    # Trace of sqrt of product
-    trace = torch.trace(sigma1) + torch.trace(sigma2)
-
-    fd = diff @ diff + trace - 2 * log_det
+    evals, evecs = torch.linalg.eigh(sigma1)
+    sqrt_sigma1 = evecs @ torch.diag(evals.clamp(min=eps).sqrt()) @ evecs.T
+    tr_covmean = torch.linalg.eigvalsh(sqrt_sigma1 @ sigma2 @ sqrt_sigma1).clamp(min=0).sqrt().sum()
+    fd = diff @ diff + torch.trace(sigma1) + torch.trace(sigma2) - 2 * tr_covmean
     return float(fd.item())
 
 
