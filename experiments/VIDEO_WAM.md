@@ -58,7 +58,11 @@ result, but it is parity bought with a large forward pass.
 compresses time 4x, so 8 frames is 2 latent frames and 16 is 4; the gain arrives exactly
 where the model first receives more than one latent frame, and nothing after.
 
-## State decodability (`state_decode.py`)
+## State decodability
+
+> The script that produced this table, `state_decode.py`, was committed empty and its source is
+> not recoverable from git history or the host. The numbers below are reported as run but cannot
+> be regenerated from this repository until the probe is rewritten.
 
 Linear ridge probes from each representation to the 21-dim state, penalty chosen on an
 inner validation split. R^2, 1.0 being perfect recovery:
@@ -111,7 +115,6 @@ for c in 1 4 8 16; do $V experiments/dit_extract.py spatial $c; done
 $V experiments/backbone_extract.py siglip2
 python3  experiments/backbone_extract.py openvla           # system python
 $V experiments/wan_compare.py                              # skips absent caches
-$V experiments/state_decode.py
 $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3   # sequential tasks
 $V experiments/continual_probe.py --n-orderings 6 --n-seeds 3 --pca-dim 21 \
    --out ~/wan_latents/continual_results_pca21.json                 # width control
