@@ -34,14 +34,14 @@ import typer
 import wandb
 from scipy import stats
 from sklearn.decomposition import PCA
-from torch import Tensor, nn
+from torch import Tensor
 
-ROOT = Path("/home/ubuntu/wan_latents")
+from probe_common import CACHE_ROOT, DEVICE, ActionHead, held_out_mask, load_task
+
 CACHES = {"vae": "spatial_agentview_rgb", "dit_ctx1": "spatial_dit_ctx1", "dit_ctx8": "spatial_dit_ctx8",
           "dit_ctx16": "spatial_dit_ctx16", "siglip2": "spatial_siglip2", "siglip2_ctx8": "spatial_siglip2_ctx8",
           "openvla": "spatial_openvla", "openvla_ctx8": "spatial_openvla_ctx8"}
 STATE = "state"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 @dataclass
@@ -100,17 +100,9 @@ class FeatureStore:
         self.norms = {r: Normaliser.over([t.train_frames(r) for t in self.tasks]) for r in self.representations}
 
     def read(self, index: int, n_eval_demos: int) -> Task:
-        features: dict[str, np.ndarray] = {}
-        action = state = demo = None
-        for name, path in self.sources.items():
-            z = np.load(path / f"task{index:02d}.npz")
-            features[name] = z["latent"].astype(np.float32)
-            if action is None:
-                action, state, demo = z["action"].astype(np.float32), z["state"].astype(np.float32), z["demo"]
-            assert len(features[name]) == len(demo), f"{name} task{index} has {len(features[name])} of {len(demo)}"
-        features[STATE] = state
-        held = set(np.unique(demo)[-n_eval_demos:].tolist())
-        return Task(index, action, np.array([d in held for d in demo]), features)
+        arrays = load_task(self.sources, index)
+        return Task(index, arrays.action, held_out_mask(arrays.demo, n_eval_demos),
+                    {**arrays.features, STATE: arrays.state})
 
     def project(self, dim: int) -> None:
         """Add a copy of every cached representation reduced to `dim` dimensions.
@@ -134,18 +126,6 @@ class FeatureStore:
 
     def dim(self, rep: str) -> int:
         return self.tasks[0].features[rep].shape[1]
-
-
-class ActionHead(nn.Module):
-    """Small MLP mapping a frozen representation to an action, the only thing that learns."""
-
-    def __init__(self, in_dim: int, out_dim: int, width: int = 128) -> None:
-        super().__init__()
-        self.net = nn.Sequential(nn.Linear(in_dim, width), nn.ReLU(),
-                                 nn.Linear(width, width), nn.ReLU(), nn.Linear(width, out_dim))
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.net(x)
 
 
 @dataclass
@@ -496,12 +476,12 @@ def run_tag(cfg: TrainConfig, pca_dim: int) -> str:
 def main(n_orderings: int = 6, n_seeds: int = 3, n_tasks: int = 10, eval_demos: int = 2,
          epochs: int = 20, pca_dim: int = 0, ewc_lambda: float = 0.0, ewc_online: bool = False,
          ewc_gamma: float = 1.0, replay_size: int = 0,
-         out: Path = ROOT / "continual_results.json") -> None:
+         out: Path = CACHE_ROOT / "continual_results.json") -> None:
     if not 0 < ewc_gamma <= 1:
         raise typer.BadParameter("ewc-gamma must be in (0, 1]; above 1 diverges, at 0 nothing is kept")
     if (ewc_online or ewc_gamma != 1.0) and not ewc_lambda:
         raise typer.BadParameter("ewc-online and ewc-gamma do nothing without a non-zero ewc-lambda")
-    store = FeatureStore(ROOT, n_tasks, eval_demos, pca_dim)
+    store = FeatureStore(CACHE_ROOT, n_tasks, eval_demos, pca_dim)
     cfg = TrainConfig(epochs=epochs, ewc_lambda=ewc_lambda, ewc_online=ewc_online,
                       ewc_gamma=ewc_gamma, replay_size=replay_size)
     run = wandb.init(project="video-wam", job_type="continual", name=run_tag(cfg, pca_dim),

@@ -18,83 +18,71 @@ Usage: backbone_extract.py <siglip2|openvla> [suite]
 """
 from __future__ import annotations
 
-import os
-import sys
 import time
 
-import h5py
 import numpy as np
 import torch
 import torch.nn.functional as F
+import typer
 import wandb
 
-LIBERO = "/home/ubuntu/robotics_world_models/LIBERO"
-SUITE_DIRS = {s: f"{LIBERO}/libero_{s}" for s in ("spatial", "object", "goal")}
+from probe_common import CACHE_ROOT, LiberoSuite, extract_suite, lagged_frames
 
-BACKBONE = sys.argv[1] if len(sys.argv) > 1 else "siglip2"
-SUITE = sys.argv[2] if len(sys.argv) > 2 else "spatial"
-CAMERA, N_TASKS, MAX_DEMOS, BATCH, CTX_GAP = "agentview_rgb", 10, 12, 32, 7
-STATE_KEYS = ["ee_ori", "ee_pos", "ee_states", "gripper_states", "joint_states"]
-ROOT = "/home/ubuntu/wan_latents"
+CTX_GAP = 7
 
 
-def build() -> tuple[torch.nn.Module, int]:
-    if BACKBONE == "siglip2":
-        from transformers import AutoModel
-        m = AutoModel.from_pretrained("google/siglip2-so400m-patch16-384", torch_dtype=torch.float16)
-        return m.vision_model.cuda().eval(), 384
-    if BACKBONE == "openvla":
-        from transformers import AutoModelForVision2Seq
-        m = AutoModelForVision2Seq.from_pretrained("openvla/openvla-7b", torch_dtype=torch.float16,
-                                                   trust_remote_code=True, low_cpu_mem_usage=True)
-        return m.vision_backbone.cuda().eval(), 224
-    raise ValueError(BACKBONE)
+class ImageBackbone:
+    """A frozen single-image encoder, mean-pooled over tokens."""
+
+    def __init__(self, name: str, batch: int = 32) -> None:
+        self.name, self.batch = name, batch
+        self.model, self.res = self.build(name)
+
+    @staticmethod
+    def build(name: str) -> tuple[torch.nn.Module, int]:
+        # Imported per backbone: the two run under different transformers majors, and
+        # AutoModelForVision2Seq exists only in the 4.x the OpenVLA checkpoint needs.
+        if name == "siglip2":
+            from transformers import AutoModel
+            m = AutoModel.from_pretrained("google/siglip2-so400m-patch16-384", torch_dtype=torch.float16)
+            return m.vision_model.cuda().eval(), 384
+        if name == "openvla":
+            from transformers import AutoModelForVision2Seq
+            m = AutoModelForVision2Seq.from_pretrained("openvla/openvla-7b", torch_dtype=torch.float16,
+                                                       trust_remote_code=True, low_cpu_mem_usage=True)
+            return m.vision_backbone.cuda().eval(), 224
+        raise typer.BadParameter(f"unknown backbone {name}")
+
+    @torch.no_grad()
+    def __call__(self, rgb: np.ndarray) -> np.ndarray:
+        out = []
+        for i in range(0, len(rgb), self.batch):
+            x = torch.from_numpy(rgb[i : i + self.batch]).cuda().half().div(127.5).sub(1.0).permute(0, 3, 1, 2)
+            x = F.interpolate(x, size=(self.res, self.res), mode="bilinear", align_corners=False)
+            feats = (self.model(torch.cat([x, x], 1)) if self.name == "openvla"
+                     else self.model(pixel_values=x).last_hidden_state)
+            out.append(feats.float().mean(1).cpu().numpy())
+        return np.concatenate(out).astype(np.float16)
+
+    def with_context(self, rgb: np.ndarray) -> dict[str, np.ndarray]:
+        """Per-frame features, plus frame t-CTX_GAP concatenated before frame t."""
+        per_frame = self(rgb)
+        paired = per_frame[lagged_frames(len(per_frame), [CTX_GAP, 0])]
+        return {"plain": per_frame, "ctx8": paired.reshape(len(per_frame), -1)}
 
 
-@torch.no_grad()
-def encode(model, res: int, rgb: np.ndarray) -> np.ndarray:
-    out = []
-    for i in range(0, len(rgb), BATCH):
-        x = torch.from_numpy(rgb[i:i + BATCH]).cuda().half().div(127.5).sub(1.0).permute(0, 3, 1, 2)
-        x = F.interpolate(x, size=(res, res), mode="bilinear", align_corners=False)
-        feats = model(torch.cat([x, x], 1)) if BACKBONE == "openvla" else model(pixel_values=x).last_hidden_state
-        out.append(feats.float().mean(1).cpu().numpy())
-    return np.concatenate(out).astype(np.float16)
-
-
-def main() -> None:
-    plain, ctx = f"{ROOT}/{SUITE}_{BACKBONE}", f"{ROOT}/{SUITE}_{BACKBONE}_ctx8"
-    os.makedirs(plain, exist_ok=True); os.makedirs(ctx, exist_ok=True)
-    run = wandb.init(project="video-wam", job_type="extract-backbone", name=f"{BACKBONE}-{SUITE}",
-                     config=dict(backbone=BACKBONE, suite=SUITE, camera=CAMERA, ctx_gap=CTX_GAP))
-    model, res = build()
-    d = SUITE_DIRS[SUITE]
-    files = sorted(f for f in os.listdir(d) if f.endswith(".hdf5"))[:N_TASKS]
-    total, t0 = 0, time.time()
-
-    for ti, fn in enumerate(files):
-        fp, fc, acts, sts, dem = [], [], [], [], []
-        with h5py.File(os.path.join(d, fn)) as h:
-            for di, k in enumerate([k for k in sorted(h["data"].keys()) if k.startswith("demo_")][:MAX_DEMOS]):
-                demo = h["data"][k]
-                rgb = np.array(demo[f"obs/{CAMERA}"])
-                a = np.array(demo["actions"], dtype=np.float32)
-                s = np.concatenate([np.array(demo[f"obs/{x}"]) for x in STATE_KEYS], -1).astype(np.float32)
-                n = min(len(rgb), len(a), len(s))
-                f_t = encode(model, res, rgb[:n])
-                prev = f_t[np.clip(np.arange(n) - CTX_GAP, 0, None)]
-                fp.append(f_t); fc.append(np.concatenate([prev, f_t], 1))
-                acts.append(a[:n]); sts.append(s[:n]); dem.append(np.full(n, di, np.int16)); total += n
-        common = dict(action=np.concatenate(acts), state=np.concatenate(sts), demo=np.concatenate(dem))
-        np.savez_compressed(f"{plain}/task{ti:02d}.npz", latent=np.concatenate(fp), **common)
-        np.savez_compressed(f"{ctx}/task{ti:02d}.npz", latent=np.concatenate(fc), **common)
-        print(f"[{BACKBONE}] task {ti}: {sum(len(a) for a in acts)} frames, dim {fp[0].shape[1]}", flush=True)
-        wandb.log({"task": ti})
-    wandb.summary.update({"total_frames": total, "seconds": round(time.time() - t0, 1),
-                          "feature_dim": int(fp[0].shape[1])})
-    print(f"== {BACKBONE}: {total} frames -> {plain} and {ctx}", flush=True)
+def main(backbone: str = typer.Argument("siglip2"), suite: str = typer.Argument("spatial")) -> None:
+    libero = LiberoSuite(suite)
+    out_dirs = {"plain": CACHE_ROOT / f"{suite}_{backbone}", "ctx8": CACHE_ROOT / f"{suite}_{backbone}_ctx8"}
+    run = wandb.init(project="video-wam", job_type="extract-backbone", name=f"{backbone}-{suite}",
+                     config=dict(backbone=backbone, suite=suite, camera=libero.camera, ctx_gap=CTX_GAP))
+    encoder, t0 = ImageBackbone(backbone), time.time()
+    total = extract_suite(libero, encoder.with_context, out_dirs, backbone, wandb.log)
+    feature_dim = int(np.load(out_dirs["plain"] / "task00.npz")["latent"].shape[1])
+    wandb.summary.update({"total_frames": total, "seconds": round(time.time() - t0, 1), "feature_dim": feature_dim})
+    print(f"== {backbone}: {total} frames -> {out_dirs['plain']} and {out_dirs['ctx8']}", flush=True)
     run.finish()
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
