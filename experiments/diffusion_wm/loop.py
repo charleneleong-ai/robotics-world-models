@@ -15,10 +15,10 @@ from __future__ import annotations
 import json
 import os
 import pickle
-import shutil
 import subprocess
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -27,8 +27,7 @@ import typer
 
 from experiments.diffusion_wm.collector import ManiSkillCollector
 from experiments.diffusion_wm.fidelity import DivergenceDetector
-from experiments.diffusion_wm.world_action_model import DiffusionWAM
-from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
+from experiments.diffusion_wm.wam_factory import WAM, load_wam
 
 
 @dataclass
@@ -114,11 +113,11 @@ class SelfDrivingLoop:
             try:
                 from experiments.diffusion_wm.wm_planner import WMPlanner, CEMConfig
                 planner = WMPlanner(model, CEMConfig(horizon=8, num_samples=100, num_top_k=10, num_iterations=3))
-                policy_fn = lambda obs, p=planner: p.plan(obs)
-                print(f"  Using WM-guided exploration (CEM: horizon=8, samples=100)")
+                policy_fn = planner.plan
+                print("  Using WM-guided exploration (CEM: horizon=8, samples=100)")
             except Exception as e:
                 print(f"  WM planner failed ({e}), falling back to WAM policy")
-                policy_fn = lambda obs, m=model: self._wam_policy(m, obs)
+                policy_fn = partial(self._wam_policy, model)
         else:
             print(f"  Using random exploration (round {round_num})")
 
@@ -200,7 +199,9 @@ class SelfDrivingLoop:
         print(f"  Converted {len(episodes)} demo episodes -> {shard_idx} shards in {out_dir}")
 
     @staticmethod
-    def _save_shard(path: Path, obs: np.ndarray, act: np.ndarray, next_obs: np.ndarray, rew: np.ndarray, done: np.ndarray) -> None:
+    def _save_shard(
+        path: Path, obs: np.ndarray, act: np.ndarray, next_obs: np.ndarray, rew: np.ndarray, done: np.ndarray,
+    ) -> None:
         """Save a single shard in the format expected by TransitionDataset."""
         np.savez_compressed(
             path,
@@ -213,7 +214,7 @@ class SelfDrivingLoop:
 
     def _train(self, round_num: int, data_dir: Path) -> Path:
         """Train WAM on collected data."""
-        ckpt_dir = self._round_dir(round_num)
+        self._round_dir(round_num)
         run_id = f"wam_round_{round_num:02d}_{self.config.task}"
 
         # Auto-scale batch size for small datasets
@@ -352,7 +353,7 @@ class SelfDrivingLoop:
         }
         return eval_results
 
-    def _compute_trust_for_episode(self, ep: dict, round_num: int, model: DiffusionWAM | None) -> float:
+    def _compute_trust_for_episode(self, ep: dict, round_num: int, model: WAM | None) -> float:
         """Compute trust score for a single episode."""
         if model is None:
             return 1.0
@@ -362,7 +363,6 @@ class SelfDrivingLoop:
             return 0.5
 
         try:
-            import pickle
             with open(traj_path, "rb") as f:
                 traj = pickle.load(f)
 
@@ -379,7 +379,8 @@ class SelfDrivingLoop:
             next_obs_t = torch.tensor(next_obs, dtype=torch.float32, device=device)
 
             with torch.no_grad():
-                predicted_next = model.predict_next_state(obs_t, action_t, num_steps=min(10, self.config.inference_steps))
+                steps = min(10, self.config.inference_steps)
+                predicted_next = model.predict_next_state(obs_t, action_t, num_steps=steps)
                 mse = ((predicted_next - next_obs_t) ** 2).mean().item()
 
             return max(0.0, 1.0 - mse)
@@ -388,7 +389,7 @@ class SelfDrivingLoop:
             return 0.5
 
     def _merge_datasets(self, existing: Path | None, new_data: Path, kept_episodes: list[int] | None = None) -> Path:
-        """Merge existing (kept only) and new data directories."""
+        """Merge existing and new data directories."""
         if existing is None or not existing.exists():
             return new_data
 
@@ -398,21 +399,11 @@ class SelfDrivingLoop:
 
         shard_idx = 0
 
-        # Copy only kept episodes from existing data
-        if kept_episodes:
-            kept_set = set(kept_episodes)
-            for shard in sorted(existing.glob("shard_*.npz")):
-                data = dict(np.load(shard))
-                # Each shard contains multiple episodes' transitions
-                # We keep the shard as-is since episode boundaries aren't tracked per-shard
-                # The filter has already selected which episodes' data is valuable
-                np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
-                shard_idx += 1
-        else:
-            for shard in sorted(existing.glob("shard_*.npz")):
-                data = dict(np.load(shard))
-                np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
-                shard_idx += 1
+        # Shards do not record episode boundaries, so kept_episodes cannot filter yet: every existing shard is kept.
+        for shard in sorted(existing.glob("shard_*.npz")):
+            data = dict(np.load(shard))
+            np.savez_compressed(merged / f"shard_{shard_idx:05d}.npz", **data)
+            shard_idx += 1
 
         for shard in sorted(new_data.glob("shard_*.npz")):
             data = dict(np.load(shard))
@@ -429,36 +420,11 @@ class SelfDrivingLoop:
 
         return merged
 
-    def _load_model(self, checkpoint_path: Path) -> DiffusionWAM | ScaledDiffusionWAM:
-        """Load WAM from checkpoint."""
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
-        cfg = ckpt.get("config", {})
-        model_sd = ckpt["model"]
-        hidden_dim = cfg.get("hidden_dim", 512)
-        ModelClass = ScaledDiffusionWAM if hidden_dim > 512 else DiffusionWAM
-
-        obs_dim = model_sd.get("obs_dim", cfg.get("obs_dim", 42))
-        act_dim = model_sd.get("act_dim", cfg.get("act_dim", 7))
-        timesteps = model_sd.get("timesteps", cfg.get("diffusion_timesteps", 1000))
-        action_horizon = model_sd.get("action_horizon", cfg.get("action_horizon", 1))
-
-        model = ModelClass(
-            obs_dim=obs_dim, act_dim=act_dim,
-            hidden_dim=hidden_dim, num_blocks=cfg.get("num_blocks", 6),
-            cond_dim=cfg.get("cond_dim", 256),
-            timesteps=timesteps, action_horizon=action_horizon,
-        ).to(device)
-
-        if "denoiser" in model_sd and isinstance(model_sd["denoiser"], dict):
-            model.denoiser.load_state_dict(model_sd["denoiser"])
-        else:
-            model.load_state_dict(model_sd)
-        model.eval()
-        return model
+    def _load_model(self, checkpoint_path: Path) -> WAM:
+        return load_wam(checkpoint_path, torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     @staticmethod
-    def _wam_policy(model: DiffusionWAM, obs: np.ndarray) -> np.ndarray:
+    def _wam_policy(model: WAM, obs: np.ndarray) -> np.ndarray:
         """Wrap WAM as a policy function for collection."""
         import torch
         device = next(model.parameters()).device
@@ -467,7 +433,9 @@ class SelfDrivingLoop:
             action = model.predict_action(obs_t)
         return action.cpu().numpy().squeeze(0)
 
-    def round(self, round_num: int, dataset: Path | None = None, prev_kept: list[int] | None = None) -> tuple[Path, list[int]]:
+    def round(
+        self, round_num: int, dataset: Path | None = None, prev_kept: list[int] | None = None,
+    ) -> tuple[Path, list[int]]:
         """Run one iteration of the loop. Returns (merged_data_dir, kept_episode_indices)."""
         self.config.round_num = round_num
         print(f"\n{'='*60}")
