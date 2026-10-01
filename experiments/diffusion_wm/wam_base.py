@@ -1,199 +1,119 @@
-"""Base classes for World Action Models (WAM).
-
-Shared functionality between DiffusionWAM and ScaledDiffusionWAM.
-"""
+"""Diffusion machinery shared by the World Action Model variants."""
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor, nn
 
-from .model import cosine_beta_schedule
+NoiseFn = Callable[[Tensor, Tensor], Tensor]
 
 
-class WAMDenoiserBase(nn.Module):
-    """Base class for WAM denoisers with shared functionality."""
-    
-    def __init__(
-        self,
-        obs_dim: int,
-        act_dim: int,
-        hidden_dim: int,
-        num_blocks: int,
-        cond_dim: int = 256,
-    ):
+def pad_to(x: Tensor, width: int) -> Tensor:
+    """Right-pad or truncate the last dim to `width`, so one input layer serves targets of either size."""
+    if x.size(-1) >= width:
+        return x[..., :width]
+    return F.pad(x, (0, width - x.size(-1)))
+
+
+def film_blocks(hidden_dim: int, num_blocks: int) -> nn.ModuleList:
+    """Pre-norm residual MLP blocks; module names match existing WAM checkpoints."""
+    return nn.ModuleList(
+        nn.ModuleDict({
+            "norm": nn.LayerNorm(hidden_dim),
+            "linear1": nn.Linear(hidden_dim, hidden_dim * 4),
+            "linear2": nn.Linear(hidden_dim * 4, hidden_dim),
+        })
+        for _ in range(num_blocks)
+    )
+
+
+def apply_film_blocks(blocks: nn.ModuleList, h: Tensor, film: Tensor) -> Tensor:
+    """Run `film_blocks`, interleaved scale/shift per block as produced by a `num_blocks * hidden * 2` linear."""
+    params = film.view(-1, len(blocks) * 2, h.size(-1))
+    scales, shifts = params[:, 0::2], params[:, 1::2]
+    for i, block in enumerate(blocks):
+        modulated = block["norm"](h) * (1 + scales[:, i]) + shifts[:, i]
+        h = h + block["linear2"](F.gelu(block["linear1"](modulated)))
+    return h
+
+
+class BaseDiffusionWAM(nn.Module, ABC):
+    """Linear-schedule noise-prediction training and strided x0-renoising sampling shared by the WAM variants.
+
+    Buffer names match the checkpoints written before this base class existed.
+    """
+
+    def __init__(self, obs_dim: int, act_dim: int, timesteps: int = 1000, action_horizon: int = 1) -> None:
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
-        self.hidden_dim = hidden_dim
-        self.num_blocks = num_blocks
-        self.cond_dim = cond_dim
-        
-        # Timestep embedding
-        self.time_embed = nn.Sequential(
-            SinusoidalEmbedding(hidden_dim),
-            nn.Linear(hidden_dim, cond_dim),
-            nn.SiLU(),
-            nn.Linear(cond_dim, cond_dim),
-        )
-        
-        # Diffusion constants
-        betas = cosine_beta_schedule(1000)
-        alphas = 1 - betas
-        alphas_cumprod = alphas.cumprod(dim=0)
-        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
-        
-        self.register_buffer("betas", betas)
-        self.register_buffer("alphas", alphas)
-        self.register_buffer("alphas_cumprod", alphas_cumprod)
-        self.register_buffer("alphas_cumprod_prev", alphas_cumprod_prev)
-        self.register_buffer("sqrt_alphas_cumprod", alphas_cumprod.sqrt())
-        self.register_buffer("sqrt_one_minus_alphas_cumprod", (1 - alphas_cumprod).sqrt())
-        self.register_buffer("posterior_variance", 
-                           betas * (1 - alphas_cumprod_prev) / (1 - alphas_cumprod))
-
-    def _q_sample(self, x_0: torch.Tensor, t: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        sqrt_alpha = self.sqrt_alphas_cumprod[t][:, None]
-        sqrt_one_minus_alpha = self.sqrt_one_minus_alphas_cumprod[t][:, None]
-        return sqrt_alpha * x_0 + sqrt_one_minus_alpha * noise
-
-
-class BaseDiffusionWAM(nn.Module):
-    """Base class for World Action Models with shared inference logic."""
-    
-    def __init__(
-        self,
-        obs_dim: int,
-        act_dim: int,
-        hidden_dim: int = 512,
-        num_blocks: int = 6,
-        cond_dim: int = 256,
-        timesteps: int = 1000,
-        action_horizon: int = 1,
-    ):
-        super().__init__()
-        self.obs_dim = obs_dim
-        self.act_dim = act_dim
-        self.hidden_dim = hidden_dim
-        self.num_blocks = num_blocks
-        self.cond_dim = cond_dim
         self.timesteps = timesteps
         self.action_horizon = action_horizon
-        
-        # Diffusion constants (subclasses must register buffers)
-        betas = cosine_beta_schedule(timesteps)
-        alphas = 1 - betas
-        alphas_cumprod = alphas.cumprod(dim=0)
-        alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
-        
+        betas = torch.linspace(1e-4, 0.02, timesteps)
+        alphas_cumprod = torch.cumprod(1.0 - betas, dim=0)
         self.register_buffer("betas", betas)
-        self.register_buffer("alphas", alphas)
         self.register_buffer("alphas_cumprod", alphas_cumprod)
-        self.register_buffer("alphas_cumprod_prev", alphas_cumprod_prev)
         self.register_buffer("sqrt_alphas_cumprod", alphas_cumprod.sqrt())
-        self.register_buffer("sqrt_one_minus_alphas_cumprod", (1 - alphas_cumprod).sqrt())
-        self.register_buffer("posterior_variance", 
-                           betas * (1 - alphas_cumprod_prev) / (1 - alphas_cumprod))
+        self.register_buffer("sqrt_one_minus_alphas_cumprod", (1.0 - alphas_cumprod).sqrt())
 
-    def _q_sample(self, x_0: torch.Tensor, t: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        sqrt_alpha = self.sqrt_alphas_cumprod[t][:, None]
-        sqrt_one_minus_alpha = self.sqrt_one_minus_alphas_cumprod[t][:, None]
-        return sqrt_alpha * x_0 + sqrt_one_minus_alpha * noise
+    def q_sample(self, x0: Tensor, t: Tensor, noise: Tensor) -> Tensor:
+        return self.sqrt_alphas_cumprod[t, None] * x0 + self.sqrt_one_minus_alphas_cumprod[t, None] * noise
 
-    def _denoise_target(
+    def random_timesteps(self, like: Tensor) -> Tensor:
+        return torch.randint(0, self.timesteps, (like.size(0),), device=like.device)
+
+    def noise_loss(self, x0: Tensor, predict_noise: NoiseFn, t: Tensor) -> Tensor:
+        noise = torch.randn_like(x0)
+        return F.mse_loss(predict_noise(self.q_sample(x0, t, noise), t), noise)
+
+    @torch.no_grad()
+    def sample(
         self,
-        state: torch.Tensor,
-        target_type: str,
-        target_dim: int,
+        predict_noise: NoiseFn,
+        shape: tuple[int, int],
         num_steps: int | None = None,
-    ) -> torch.Tensor:
-        """Denoise a target (state or action) from observation."""
-        B = state.size(0)
-        T = num_steps or self.timesteps
-        device = state.device
-        
-        x = torch.randn(B, target_dim, device=device)
-        
-        for t_idx in range(T):
-            t_batch = torch.full((B,), t_idx, device=device, dtype=torch.float)
-            pred_noise = self.denoiser(x, state, target_type, t_batch)
-            alpha = self.alphas_cumprod[t_idx]
-            alpha_prev = self.alphas_cumprod[t_idx - 1] if t_idx > 0 else torch.ones_like(alpha)
-            
-            x0_pred = (x - (1 - alpha).sqrt() * pred_noise) / alpha.sqrt()
-            x0_pred = x0_pred.clamp(-1, 1)
-            
-            if t_idx > 0:
-                noise = torch.randn_like(x)
-                x = alpha_prev.sqrt() * x0_pred + (1 - alpha_prev).sqrt() * noise
-            else:
-                x = x0_pred
-        
+        clip: float | None = None,
+    ) -> Tensor:
+        """Strided sampling from t = T-1 down to 0: estimate x0, then re-noise it to the next sampled step.
+
+        `clip` bounds each x0 estimate; use it only for targets that live in [-clip, clip].
+        """
+        n = min(num_steps or 100, self.timesteps)
+        steps = torch.linspace(self.timesteps - 1, 0, n, device=self.betas.device).round().long()
+        x = torch.randn(shape, device=self.betas.device)
+        for i, t in enumerate(steps):
+            alpha = self.alphas_cumprod[t]
+            x0 = (x - (1 - alpha).sqrt() * predict_noise(x, t.expand(shape[0]))) / alpha.sqrt()
+            if clip is not None:
+                x0 = x0.clamp(-clip, clip)
+            if i + 1 == n:
+                return x0
+            alpha_next = self.alphas_cumprod[steps[i + 1]]
+            x = alpha_next.sqrt() * x0 + (1 - alpha_next).sqrt() * torch.randn_like(x)
         return x
 
-    @torch.no_grad()
-    def predict_action(
-        self,
-        state: torch.Tensor,
-        num_steps: int | None = None,
-    ) -> torch.Tensor:
-        """Generate action from observation (policy use)."""
-        return self._denoise_target(state, "action", self.act_dim, num_steps)
+    @abstractmethod
+    def loss_terms(self, obs: Tensor, next_state: Tensor, action: Tensor) -> dict[str, Tensor]: ...
+
+    @abstractmethod
+    def predict_action(self, obs: Tensor, num_steps: int | None = None) -> Tensor: ...
+
+    @abstractmethod
+    def predict_next_state(self, state: Tensor, action: Tensor, num_steps: int | None = None) -> Tensor: ...
+
+    def training_loss(self, obs: Tensor, next_state: Tensor, action: Tensor) -> tuple[Tensor, dict[str, float]]:
+        terms = self.loss_terms(obs, next_state, action)
+        total = torch.stack(list(terms.values())).sum()
+        return total, {**{k: v.item() for k, v in terms.items()}, "total_loss": total.item()}
 
     @torch.no_grad()
-    def predict_action_chunk(
-        self,
-        state: torch.Tensor,
-        horizon: int | None = None,
-        num_steps: int | None = None,
-    ) -> torch.Tensor:
-        """Generate a chunk of actions autoregressively."""
-        h = horizon or self.action_horizon
-        B = state.size(0)
+    def predict_action_chunk(self, state: Tensor, horizon: int | None = None, num_steps: int | None = None) -> Tensor:
         actions = []
-        s = state
-        for _ in range(h):
-            a = self.predict_action(s, num_steps)
-            actions.append(a)
-            s = self.predict_next_state(s, a, num_steps=num_steps)
+        for _ in range(horizon or self.action_horizon):
+            action = self.predict_action(state, num_steps)
+            actions.append(action)
+            state = self.predict_next_state(state, action, num_steps)
         return torch.stack(actions, dim=1)
-
-    @torch.no_grad()
-    def predict_next_state(
-        self,
-        state: torch.Tensor,
-        action: torch.Tensor,
-        num_steps: int | None = None,
-    ) -> torch.Tensor:
-        """Predict next state given current state and action (world model use)."""
-        # Subclasses must implement this to use the action
-        raise NotImplementedError("Subclasses must implement predict_next_state")
-
-
-# Shared utilities
-class SinusoidalEmbedding(nn.Module):
-    """Sinusoidal positional embedding for timesteps."""
-    
-    def __init__(self, dim: int):
-        super().__init__()
-        self.dim = dim
-        half = dim // 2
-        freqs = torch.exp(-torch.arange(half) * torch.log(torch.tensor(10000.0)) / half)
-        self.register_buffer("freqs", freqs)
-
-    def forward(self, t: torch.Tensor) -> torch.Tensor:
-        """t: [B] -> [B, dim]"""
-        half = self.dim // 2
-        emb = t[:, None] * self.freqs[None, :]
-        emb = torch.cat([emb.sin(), emb.cos()], dim=-1)
-        if self.dim % 2 == 1:
-            emb = F.pad(emb, (0, 1))
-        return emb
-
-
-# Export for backward compatibility
-__all__ = [
-    "WAMDenoiserBase",
-    "BaseDiffusionWAM",
-    "SinusoidalEmbedding",
-]
