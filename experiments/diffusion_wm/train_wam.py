@@ -24,8 +24,7 @@ import typer
 import wandb
 
 from experiments.diffusion_wm.dataset import create_dataloader
-from experiments.diffusion_wm.world_action_model import DiffusionWAM
-from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
+from experiments.diffusion_wm.wam_factory import WAM, wam_class
 
 
 @dataclass
@@ -110,8 +109,7 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
     cfg.obs_dim, cfg.act_dim = obs_dim, act_dim
     print(f"Data: {cfg.data_dir} — obs_dim={obs_dim}, act_dim={act_dim}")
 
-    ModelClass = ScaledDiffusionWAM if cfg.hidden_dim > 512 else DiffusionWAM
-    model = ModelClass(
+    model = wam_class(cfg.hidden_dim)(
         obs_dim=obs_dim,
         act_dim=act_dim,
         hidden_dim=cfg.hidden_dim,
@@ -151,7 +149,7 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
             "hidden_dim": cfg.hidden_dim, "num_blocks": cfg.num_blocks,
             "diffusion_timesteps": cfg.diffusion_timesteps, "batch_size": cfg.batch_size,
             "lr": cfg.lr, "weight_decay": cfg.weight_decay, "num_steps": cfg.num_steps,
-            "data_dir": str(cfg.data_dir), "model_type": "DiffusionWAM",
+            "data_dir": str(cfg.data_dir), "model_type": type(model).__name__,
         },
     )
     (ckpt_dir / "wandb_run_id.txt").write_text(wandb.run.id)
@@ -159,7 +157,7 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
     return model, optimizer, scheduler, train_loader, val_loader, start_step, ckpt_dir
 
 
-def save_checkpoint(path: Path, step: int, model: DiffusionWAM, optimizer: torch.optim.Optimizer,
+def save_checkpoint(path: Path, step: int, model: WAM, optimizer: torch.optim.Optimizer,
                     scheduler: WarmupCosineLR, cfg: Config, val_loss: float | None = None) -> None:
     torch.save({
         "step": step,
@@ -172,7 +170,7 @@ def save_checkpoint(path: Path, step: int, model: DiffusionWAM, optimizer: torch
 
 
 @torch.no_grad()
-def validate(model: DiffusionWAM, val_loader: torch.utils.data.DataLoader,
+def validate(model: WAM, val_loader: torch.utils.data.DataLoader,
              device: torch.device) -> dict[str, float]:
     model.eval()
     total_state_loss = 0.0
