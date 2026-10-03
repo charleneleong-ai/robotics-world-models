@@ -31,6 +31,7 @@ def load_wam(checkpoint_path: Path, device: torch.device | str) -> WAM:
         cond_dim=cfg.get("cond_dim", 256),
         timesteps=weights.get("timesteps", cfg.get("diffusion_timesteps", 1000)),
         action_horizon=weights.get("action_horizon", cfg.get("action_horizon", 1)),
+        condition_on_action=cfg.get("condition_on_action", False),
     ).to(device)
     if isinstance(weights.get("denoiser"), dict):
         model.denoiser.load_state_dict(weights["denoiser"])

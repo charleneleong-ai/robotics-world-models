@@ -32,6 +32,8 @@ class CEMConfig:
     action_bounds: tuple[float, float] = (-1.0, 1.0)
     momentum: float = 0.0
     noise_std: float = 0.5
+    denoise_steps: int = 10
+    uncertainty_samples: int = 2
 
 
 class WMPlanner:
@@ -68,7 +70,7 @@ class WMPlanner:
         Returns:
             best_action [act_dim] — the first action of the best sequence
         """
-        state_t = torch.tensor(state, dtype=torch.float32, device=self.device)
+        state_t = torch.as_tensor(state, dtype=torch.float32, device=self.device)
         if state_t.dim() == 1:
             state_t = state_t.unsqueeze(0)
 
@@ -121,18 +123,19 @@ class WMPlanner:
         for h in range(self.config.horizon):
             a = actions[:, h]  # [K, act_dim]
 
-            # Predict next state
-            s_next = self.wam.predict_next_state(s, a, num_steps=10)
+            samples = torch.stack([
+                self.wam.predict_next_state(s, a, num_steps=self.config.denoise_steps)
+                for _ in range(self.config.uncertainty_samples)
+            ])
+            s_next = samples[0]
 
             # Compute reward
             if reward_fn is not None:
                 r = reward_fn(s, a, s_next)
                 total_reward += r
             else:
-                # Use prediction uncertainty as exploration bonus
-                # Higher uncertainty = more interesting state
-                uncertainty = (s_next - s).abs().mean(dim=1)
-                total_uncertainty += uncertainty
+                # Exploration bonus: disagreement between independent samples of the next state
+                total_uncertainty += samples.var(dim=0, unbiased=False).mean(dim=1)
 
             s = s_next
 
