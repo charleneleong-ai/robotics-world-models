@@ -52,6 +52,7 @@ class Config:
     diffusion_timesteps: int = 1000
     inference_steps: int = 100
     action_horizon: int = 1
+    condition_on_action: bool = False
     obs_dim: int | None = None
     act_dim: int | None = None
 
@@ -117,6 +118,7 @@ def setup_training(cfg: Config, device: torch.device) -> tuple:
         cond_dim=cfg.cond_dim,
         timesteps=cfg.diffusion_timesteps,
         action_horizon=cfg.action_horizon,
+        condition_on_action=cfg.condition_on_action,
     ).to(device)
 
     param_count = sum(p.numel() for p in model.parameters())
@@ -279,6 +281,7 @@ def main(
     diffusion_timesteps: int = typer.Option(1000, help="Diffusion timesteps"),
     inference_steps: int = typer.Option(100, help="Sampling steps"),
     action_horizon: int = typer.Option(1, help="Action prediction horizon"),
+    condition_on_action: bool = typer.Option(False, help="Condition the next-state head on the action"),
     resume: str | None = typer.Option(None, help="Checkpoint to resume from"),
     checkpoint_dir: Path = typer.Option(Path("checkpoints/diffusion_wm"), help="Checkpoint output dir"),
     project: str = typer.Option("wm-manip"),
@@ -289,7 +292,8 @@ def main(
         data_dir=data_dir, run_id=run_id, num_steps=num_steps, batch_size=batch_size,
         lr=lr, hidden_dim=hidden_dim, num_blocks=num_blocks,
         diffusion_timesteps=diffusion_timesteps, inference_steps=inference_steps,
-        action_horizon=action_horizon, resume=resume, checkpoint_dir=checkpoint_dir,
+        action_horizon=action_horizon, condition_on_action=condition_on_action,
+        resume=resume, checkpoint_dir=checkpoint_dir,
         project=project, eval_interval=eval_interval,
     )
     train(cfg)

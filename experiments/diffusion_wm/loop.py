@@ -52,6 +52,7 @@ class LoopConfig:
     # Model
     hidden_dim: int = 512
     num_blocks: int = 6
+    condition_on_action: bool = False
     diffusion_timesteps: int = 1000
     inference_steps: int = 100
 
@@ -235,6 +236,7 @@ class SelfDrivingLoop:
             "--num-blocks", str(self.config.num_blocks),
             "--diffusion-timesteps", str(self.config.diffusion_timesteps),
             "--checkpoint-dir", str(self.config.checkpoint_dir),
+            "--condition-on-action" if self.config.condition_on_action else "--no-condition-on-action",
         ]
 
         env = os.environ.copy()
@@ -543,6 +545,7 @@ def main(
     demo_dir: Path = typer.Option(None, help="Path to downloaded ManiSkill demos for bootstrapping"),
     hidden_dim: int = typer.Option(512, help="Hidden dimension for WAM"),
     num_blocks: int = typer.Option(6, help="Number of residual blocks"),
+    condition_on_action: bool = typer.Option(False, help="Condition the next-state head on the action"),
 ) -> None:
     config = LoopConfig(
         task=task,
@@ -559,6 +562,7 @@ def main(
         demo_dir=demo_dir,
         hidden_dim=hidden_dim,
         num_blocks=num_blocks,
+        condition_on_action=condition_on_action,
     )
     loop = SelfDrivingLoop(config)
     loop.run()

@@ -10,7 +10,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .model import (
-    MLPDenoiser,
     SinusoidalEmbedding,
     cosine_beta_schedule,
 )
@@ -35,6 +34,7 @@ class WAMDenoiser(nn.Module):
         hidden_dim: int = 512,
         num_blocks: int = 6,
         cond_dim: int = 256,
+        condition_on_action: bool = False,
     ):
         super().__init__()
         self.obs_dim = obs_dim
@@ -45,6 +45,8 @@ class WAMDenoiser(nn.Module):
         # Input projection: [s_t, noisy_target] -> hidden
         # noisy_target is either noisy_s_{t+1} (state head) or noisy_a_t (action head)
         self.input_proj = nn.Linear(obs_dim + max(obs_dim, act_dim), hidden_dim)
+        # Opt-in so checkpoints trained without it still load; adds the action to the state head's input.
+        self.state_action_proj = nn.Linear(act_dim, hidden_dim) if condition_on_action else None
 
         # Timestep embedding -> FiLM scale/bias
         self.time_embed = nn.Sequential(
@@ -83,6 +85,7 @@ class WAMDenoiser(nn.Module):
         state: torch.Tensor,
         target_type: str,
         timestep: torch.Tensor,
+        action: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass through shared backbone + selected head.
 
@@ -100,6 +103,8 @@ class WAMDenoiser(nn.Module):
             x_padded = x_noisy[:, :self.input_proj.in_features - self.obs_dim]
 
         h = self.input_proj(torch.cat([state, x_padded], dim=-1))
+        if target_type == "state" and self.state_action_proj is not None:
+            h = h + self.state_action_proj(action)
 
         # FiLM modulation from timestep
         t_emb = self.time_embed(timestep)
@@ -142,6 +147,7 @@ class DiffusionWAM(nn.Module):
         cond_dim: int = 256,
         timesteps: int = 1000,
         action_horizon: int = 1,
+        condition_on_action: bool = False,
     ):
         super().__init__()
         self.obs_dim = obs_dim
@@ -149,7 +155,8 @@ class DiffusionWAM(nn.Module):
         self.timesteps = timesteps
         self.action_horizon = action_horizon
 
-        self.denoiser = WAMDenoiser(obs_dim, act_dim, hidden_dim, num_blocks, cond_dim)
+        self.condition_on_action = condition_on_action
+        self.denoiser = WAMDenoiser(obs_dim, act_dim, hidden_dim, num_blocks, cond_dim, condition_on_action)
 
         # Diffusion constants (shared schedule for both state and action)
         betas = cosine_beta_schedule(timesteps)
@@ -183,7 +190,7 @@ class DiffusionWAM(nn.Module):
         # State loss
         state_noise = torch.randn_like(next_state)
         x_noisy_state = self._q_sample(next_state, t, state_noise)
-        pred_state_noise = self.denoiser(x_noisy_state, obs, "state", t.float())
+        pred_state_noise = self.denoiser(x_noisy_state, obs, "state", t.float(), action)
         state_loss = F.mse_loss(pred_state_noise, state_noise)
 
         # Action loss
@@ -206,6 +213,7 @@ class DiffusionWAM(nn.Module):
         target_type: str,
         target_dim: int,
         num_steps: int | None = None,
+        action: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Denoise a single target (state or action) conditioned on obs."""
         n = state.size(0)
@@ -216,7 +224,7 @@ class DiffusionWAM(nn.Module):
 
         for t_idx in reversed(range(T)):
             t_batch = torch.full((n,), t_idx, device=device, dtype=torch.float)
-            pred_noise = self.denoiser(x, state, target_type, t_batch)
+            pred_noise = self.denoiser(x, state, target_type, t_batch, action)
             alpha = self.alphas[t_idx]
             alpha_cumprod = self.alphas_cumprod[t_idx]
             beta = self.betas[t_idx]
@@ -236,7 +244,7 @@ class DiffusionWAM(nn.Module):
         num_steps: int | None = None,
     ) -> torch.Tensor:
         """Predict next state given current state and action (world model use)."""
-        return self._denoise_target(state, "state", self.obs_dim, num_steps)
+        return self._denoise_target(state, "state", self.obs_dim, num_steps, action)
 
     @torch.no_grad()
     def predict_action(
@@ -264,7 +272,6 @@ class DiffusionWAM(nn.Module):
             action_chunk [B, horizon, act_dim]
         """
         h = horizon or self.action_horizon
-        B = state.size(0)
         actions = []
         s = state
 
@@ -293,7 +300,6 @@ class DiffusionWAM(nn.Module):
         Returns:
             predicted_states [B, horizon+1, obs_dim]
         """
-        B = states.size(0)
         preds = [states]
         s = states
         for h in range(horizon):
@@ -310,6 +316,7 @@ class DiffusionWAM(nn.Module):
             "obs_dim": self.obs_dim,
             "act_dim": self.act_dim,
             "action_horizon": self.action_horizon,
+            "condition_on_action": self.condition_on_action,
         }
 
     def load_state_dict(self, d: dict) -> None:
