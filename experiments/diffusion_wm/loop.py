@@ -20,15 +20,20 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import torch
 import typer
 
-from experiments.diffusion_wm.collector import ManiSkillCollector
+from experiments.diffusion_wm.collector import ManiSkillCollector, load_demonstration_data
 from experiments.diffusion_wm.fidelity import DivergenceDetector
 from experiments.diffusion_wm.world_action_model import DiffusionWAM
 from experiments.diffusion_wm.scaled_wam import ScaledDiffusionWAM
+from experiments.diffusion_wm.dense_rewards import DenseRewardComputer, DenseRewardConfig
+from experiments.diffusion_wm.imitation_pretrain import BCPretrainer, BCPretrainConfig, run_bc_pretrain
+from experiments.diffusion_wm.wm_planner import WMPlanner, CEMConfig
+from experiments.diffusion_wm.wam_base import BaseDiffusionWAM
 
 
 @dataclass
@@ -56,6 +61,16 @@ class LoopConfig:
     diffusion_timesteps: int = 1000
     inference_steps: int = 100
 
+    # Dense reward config
+    use_dense_rewards: bool = True
+    dense_reward_config: DenseRewardConfig = field(default_factory=DenseRewardConfig)
+
+    # Imitation pre-training
+    use_bc_pretrain: bool = True
+    bc_epochs: int = 50
+    bc_batch_size: int = 256
+    bc_lr: float = 1e-4
+
 
 class SelfDrivingLoop:
     """E2E learning loop: collect → train → serve → eval → filter → retrain."""
@@ -66,6 +81,79 @@ class SelfDrivingLoop:
         self.config.eval_dir.mkdir(parents=True, exist_ok=True)
         self.round_history: list[dict] = []
         self.divergence_detector = DivergenceDetector()
+        
+        # Dense reward computer
+        if self.config.use_dense_rewards:
+            self.dense_reward_computer = DenseRewardComputer(
+                self.config.dense_reward_config, self.config.task
+            )
+        else:
+            self.dense_reward_computer = None
+
+    def _round_dir(self, round_num: int) -> Path:
+        d = self.config.checkpoint_dir / f"round_{round_num:02d}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _eval_dir(self, round_num: int) -> Path:
+        d = self.config.eval_dir / f"round_{round_num:02d}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _run_bc_pretrain(self):
+        """Run Behavior Cloning pre-training on demonstration data."""
+        if not self.config.use_bc_pretrain or not self.config.demo_dir or not self.config.demo_dir.exists():
+            print("  Skipping BC pre-training (no demo dir or disabled)")
+            return None
+        
+        print("\n[Pre-train] Running BC on {} epochs...".format(self.config.bc_epochs))
+        print("  Demo dir: {}".format(self.config.demo_dir))
+        
+        bc_config = BCPretrainConfig(
+            epochs=self.config.bc_epochs,
+            batch_size=self.config.bc_batch_size,
+            lr=self.config.bc_lr,
+            weight_decay=1e-4,
+            warmup_epochs=5,
+            val_split=0.1,
+            seed=self.config.seed,
+        )
+        
+        # Determine model class based on hidden_dim
+        ModelClass = ScaledDiffusionWAM if self.config.hidden_dim > 512 else DiffusionWAM
+        model = ModelClass(
+            obs_dim=42,  # Will be set correctly in train
+            act_dim=8,
+            hidden_dim=self.config.hidden_dim,
+            num_blocks=self.config.num_blocks,
+            cond_dim=256,
+            diffusion_timesteps=self.config.diffusion_timesteps,
+            inference_steps=100,
+        )
+        
+        try:
+            model, history = run_bc_pretrain(
+                model=model,
+                demo_dir=self.config.demo_dir,
+                task=self.config.task,
+                config=BCPretrainConfig(
+                    epochs=self.config.bc_epochs,
+                    batch_size=self.config.bc_batch_size,
+                    lr=self.config.bc_lr,
+                    weight_decay=1e-4,
+                    warmup_epochs=5,
+                    val_split=0.1,
+                    seed=self.config.seed,
+                ),
+                checkpoint_dir=Path("checkpoints/bc_pretrain") / self.config.task,
+                max_episodes=self.config.episodes_per_round,
+                max_steps=self.config.max_steps,
+            )
+            print("  BC pre-training complete (final val_loss: {:.4f})".format(history[-1]["val_loss"]))
+            return model
+        except Exception as e:
+            print("  BC pre-training failed: {}".format(e))
+            return None
 
     def _round_dir(self, round_num: int) -> Path:
         d = self.config.checkpoint_dir / f"round_{round_num:02d}"
@@ -113,19 +201,32 @@ class SelfDrivingLoop:
             # Use WM-guided exploration: CEM planning through the world model
             try:
                 from experiments.diffusion_wm.wm_planner import WMPlanner, CEMConfig
-                planner = WMPlanner(model, CEMConfig(horizon=8, num_samples=100, num_top_k=10, num_iterations=3))
-                policy_fn = lambda obs, p=planner: p.plan(obs)
-                print(f"  Using WM-guided exploration (CEM: horizon=8, samples=100)")
+                planner = WMPlanner(model, CEMConfig(
+                    horizon=5, num_samples=32, num_top_k=8, num_iterations=2,
+                    denoise_steps=5, exploration_weight=0.1
+                ))
+                # Use dense reward if available
+                reward_fn = self.dense_reward_computer.compute if self.dense_reward_computer else None
+                policy_fn = lambda obs, p=planner: p.plan(obs, reward_fn=reward_fn)
+                print(f"  Using WM-guided exploration (CEM: horizon=5, samples=32)")
             except Exception as e:
                 print(f"  WM planner failed ({e}), falling back to WAM policy")
                 policy_fn = lambda obs, m=model: self._wam_policy(m, obs)
         else:
             print(f"  Using random exploration (round {round_num})")
 
+        collector = ManiSkillCollector(
+            self.config.task,
+            num_envs=self.config.num_envs,
+            max_steps=self.config.max_steps,
+            seed=self.config.seed + round_num,
+        )
+
         collector.collect_dataset(
             self.config.episodes_per_round,
             policy_fn=policy_fn,
             out=data_dir,
+            dense_reward_fn=self.dense_reward_computer.compute if self.dense_reward_computer else None,
         )
         collector.close()
         return data_dir

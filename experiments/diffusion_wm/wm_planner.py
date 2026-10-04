@@ -2,36 +2,28 @@
 
 Uses the trained World Action Model to plan actions that maximize
 reward + exploration bonus, replacing random data collection.
-
-Architecture:
-    1. Sample K candidate action sequences (K=200, horizon=8)
-    2. Simulate each sequence through the WAM
-    3. Score by: reward prediction + exploration_bonus(prediction_uncertainty)
-    4. Select top-K, refit distribution, repeat for N iterations
-    5. Execute the best action sequence in the real environment
-
-Key insight: The WAM IS the planner — no separate value function needed.
-The parallel action+state denoising heads naturally couple planning with
-world modeling.
 """
 from __future__ import annotations
 
 import torch
+import torch.nn as nn
 import numpy as np
 from dataclasses import dataclass
+from typing import Optional, Callable
 
 
 @dataclass
 class CEMConfig:
     """Cross-Entropy Method planner configuration."""
-    horizon: int = 8
-    num_samples: int = 200
-    num_top_k: int = 20
-    num_iterations: int = 5
+    horizon: int = 5  # Reduced from 8
+    num_samples: int = 32  # Reduced from 200
+    num_top_k: int = 8
+    num_iterations: int = 2  # Reduced from 5
     exploration_weight: float = 0.1
     action_bounds: tuple[float, float] = (-1.0, 1.0)
     momentum: float = 0.0
     noise_std: float = 0.5
+    denoise_steps: int = 5  # Reduced from 10
 
 
 class WMPlanner:
@@ -68,7 +60,7 @@ class WMPlanner:
         Returns:
             best_action [act_dim] — the first action of the best sequence
         """
-        state_t = torch.tensor(state, dtype=torch.float32, device=self.device)
+        state_t = torch.as_tensor(state, dtype=torch.float32, device=self.device)
         if state_t.dim() == 1:
             state_t = state_t.unsqueeze(0)
 
@@ -106,7 +98,7 @@ class WMPlanner:
         Args:
             state: [1, obs_dim]
             actions: [K, horizon, act_dim]
-            reward_fn: optional reward function
+            reward_fn: optional reward function(state, action, next_state) -> reward
 
         Returns:
             scores: [K] — higher is better
@@ -121,17 +113,22 @@ class WMPlanner:
         for h in range(self.config.horizon):
             a = actions[:, h]  # [K, act_dim]
 
-            # Predict next state
-            s_next = self.wam.predict_next_state(s, a, num_steps=10)
+            # Predict next state (uses action!)
+            s_next = self.wam.predict_next_state(s, a, num_steps=self.config.denoise_steps)
 
             # Compute reward
             if reward_fn is not None:
                 r = reward_fn(s, a, s_next)
                 total_reward += r
             else:
-                # Use prediction uncertainty as exploration bonus
-                # Higher uncertainty = more interesting state
-                uncertainty = (s_next - s).abs().mean(dim=1)
+                # Use prediction variance as exploration bonus (ensemble-style)
+                with torch.no_grad():
+                    preds = []
+                    for _ in range(2):  # Reduced from 3
+                        pred = self.wam.predict_next_state(s, a, num_steps=self.config.denoise_steps)
+                        preds.append(pred)
+                    pred_stack = torch.stack(preds, dim=0)  # [2, K, obs_dim]
+                    uncertainty = pred_stack.var(dim=0).mean(dim=1)  # [K]
                 total_uncertainty += uncertainty
 
             s = s_next
@@ -148,7 +145,7 @@ class WMPlanner:
 
 
 class WMGuidedCollector:
-    """Collector that uses WM planning instead of random actions.
+    """Collector that uses WM-guided exploration instead of random actions.
 
     Alternates between:
     1. CEM planning (uses WAM to select actions)
@@ -161,22 +158,25 @@ class WMGuidedCollector:
         env,
         wam,
         planner_config: CEMConfig | None = None,
-        plan_every: int = 1,
+        plan_every: int = 5,  # Re-plan every N steps (reduced from 1)
         fallback_to_random: bool = True,
+        dense_reward_fn=None,
     ):
         """
         Args:
             env: ManiSkill3 environment
             wam: trained DiffusionWAM
             planner_config: CEM hyperparameters
-            plan_every: re-plan every N steps (1 = every step)
+            plan_every: re-plan every N steps (5 = every 5 steps)
             fallback_to_random: if True, use random actions when WAM is untrained
+            dense_reward_fn: optional dense reward function
         """
         self.env = env
         self.wam = wam
         self.planner = WMPlanner(wam, planner_config)
         self.plan_every = plan_every
         self.fallback_to_random = fallback_to_random
+        self.dense_reward_fn = dense_reward_fn
         self._step_count = 0
 
     def collect_episode(self, max_steps: int = 200) -> dict:
@@ -186,7 +186,7 @@ class WMGuidedCollector:
             dict with keys: obs, action, next_obs, reward, done, success
         """
         obs, _ = self.env.reset()
-        obs_list, action_list, next_obs_list, reward_list = [], [], [], []
+        obs_list, action_list, next_obs_list, reward_list, done_list = [], [], [], [], []
 
         for step in range(max_steps):
             obs_np = obs.cpu().numpy() if isinstance(obs, torch.Tensor) else obs
@@ -194,7 +194,7 @@ class WMGuidedCollector:
             # Plan or use random
             if self._step_count % self.plan_every == 0:
                 try:
-                    action = self.planner.plan(obs_np)
+                    action = self.planner.plan(obs_np, reward_fn=self.dense_reward_fn)
                 except Exception:
                     if self.fallback_to_random:
                         action = self.env.action_space.sample()
@@ -234,7 +234,7 @@ class WMGuidedCollector:
             "action": np.array(action_list),
             "next_obs": np.array(next_obs_list),
             "reward": np.array(reward_list),
-            "done": np.array([True] * len(obs_list)),
+            "done": np.array(done_list),
             "success": success,
             "total_reward": sum(reward_list),
         }
